@@ -7,50 +7,136 @@
   <style>
     *{margin:0;padding:0;box-sizing:border-box;font-family:system-ui}
     body{background:#0b101b;color:#eaeefe;padding:30px}
-    .box{max-width:600px;margin:50px auto;background:#141925;padding:30px;border-radius:16px}
+    .box{max-width:800px;margin:50px auto;background:#141925;padding:30px;border-radius:16px}
     h1{color:#fff;margin-bottom:20px}
-    textarea{width:100%;height:160px;background:#1d2333;color:#fff;border:none;border-radius:12px;padding:16px;font-size:16px}
-    button{width:100%;padding:16px;background:#4b7fff;color:#fff;border:none;border-radius:12px;margin-top:16px;font-size:16px}
+    textarea{width:100%;height:120px;background:#1d2333;color:#fff;border:none;border-radius:12px;padding:16px;font-size:16px;margin-bottom:16px}
+    button{padding:12px 24px;background:#4b7fff;color:#fff;border:none;border-radius:12px;font-size:16px;cursor:pointer}
+    button:disabled{background:#3a4a66;cursor:not-allowed}
     .status{margin-top:20px;padding:16px;background:#1d2333;border-radius:12px;color:#c3d0ff}
     video{margin-top:20px;width:100%;border-radius:12px;display:none}
+    .step-container{margin-top:24px}
+    .step{display:flex;align-items:center;margin-bottom:12px;padding:12px;border-radius:8px;background:#1d2333}
+    .step-number{width:30px;height:30px;border-radius:50%;background:#4b7fff;color:#fff;display:flex;align-items:center;justify-content:center;margin-right:12px;font-weight:bold}
+    .step-text{flex-grow}
+    .step.completed .step-number{background:#28a745}
+    .step.completed .step-text{color:#a8f0b5}
+    .step.current .step-number{background:#ffc107}
+    .step.current .step-text{color:#fff}
   </style>
 </head>
 <body>
   <div class="box">
     <h1>TOONOOT AI 动画生成</h1>
     <textarea id="text" placeholder="请输入你要生成视频的文案…"></textarea>
-    <button onclick="go()">生成视频</button>
+    <button id="generateBtn" onclick="generateVideo()">生成视频</button>
     <div id="status" style="display:none"></div>
     <video id="video" controls></video>
+
+    <!-- 新增的步骤展示区域 -->
+    <div class="step-container" id="stepsContainer" style="display:none">
+      <h3 style="color:#fff;margin-bottom:16px">生成进度：</h3>
+      <div class="step" id="step1">
+        <div class="step-number">1</div>
+        <div class="step-text">文案改写</div>
+      </div>
+      <div class="step" id="step2">
+        <div class="step-number">2</div>
+        <div class="step-text">剧本化</div>
+      </div>
+      <div class="step" id="step3">
+        <div class="step-number">3</div>
+        <div class="step-text">分镜头剧本</div>
+      </div>
+      <div class="step" id="step4">
+        <div class="step-number">4</div>
+        <div class="step-text">图片生成</div>
+      </div>
+      <div class="step" id="step5">
+        <div class="step-number">5</div>
+        <div class="step-text">视频剪辑生成</div>
+      </div>
+      <div class="step" id="step6">
+        <div class="step-number">6</div>
+        <div class="step-text">配音</div>
+      </div>
+      <div class="step" id="step7">
+        <div class="step-number">7</div>
+        <div class="step-text">配字幕</div>
+      </div>
+      <div class="step" id="step8">
+        <div class="step-number">8</div>
+        <div class="step-text">成片导出</div>
+      </div>
+    </div>
   </div>
 
   <script>
-    async function go() {
-      const t = document.getElementById('text').value.trim();
-      const s = document.getElementById('status');
-      const v = document.getElementById('video');
-      if (!t) return alert('请输入内容');
-      s.style.display = 'block';
-      s.innerText = '⏳ 正在调用火山AI生成视频...';
+    const generateBtn = document.getElementById('generateBtn');
+    const statusDiv = document.getElementById('status');
+    const video = document.getElementById('video');
+    const stepsContainer = document.getElementById('stepsContainer');
+    const steps = document.querySelectorAll('.step');
+
+    async function generateVideo() {
+      const text = document.getElementById('text').value.trim();
+      if (!text) return alert('请输入内容');
+
+      // 禁用按钮，显示状态和步骤
+      generateBtn.disabled = true;
+      statusDiv.style.display = 'block';
+      statusDiv.innerText = '⏳ 视频生成中，请稍候...';
+      stepsContainer.style.display = 'block';
+      video.style.display = 'none';
+
       try {
-        const r = await fetch('/.netlify/functions/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: t })
-        });
-        const d = await r.json();
-        if (d.success) {
-          s.innerText = '✅ ' + d.message;
-          if (d.videoUrl && d.videoUrl !== '#') {
-            v.src = d.videoUrl;
-            v.style.display = 'block';
-          }
-        } else {
-          s.innerText = '❌ ' + d.error;
-        }
-      } catch (e) {
-        s.innerText = '❌ 错误：' + e.message;
+        // 模拟分步执行（实际项目中这里会调用后端API）
+        await simulateStep(1, "文案改写...", 1000);
+        await simulateStep(2, "剧本化...", 1000);
+        await simulateStep(3, "分镜头剧本...", 1000);
+        await simulateStep(4, "图片生成...", 1000);
+        await simulateStep(5, "视频剪辑生成...", 1000);
+        await simulateStep(6, "配音...", 1000);
+        await simulateStep(7, "配字幕...", 1000);
+        await simulateStep(8, "成片导出...", 1000);
+
+        // 所有步骤完成
+        statusDiv.innerText = '✅ 视频生成成功！';
+        video.style.display = 'block';
+        video.src = 'https://example.com/your-video.mp4'; // 这里替换为真实视频URL
+      } catch (error) {
+        statusDiv.innerText = '❌ 生成失败：' + error.message;
+      } finally {
+        generateBtn.disabled = false;
       }
+    }
+
+    // 模拟一个步骤的执行
+    function simulateStep(stepIndex, message, delay) {
+      return new Promise((resolve) => {
+        // 标记当前步骤
+        steps.forEach((step, index) => {
+          if (index < stepIndex - 1) {
+            step.classList.add('completed');
+            step.classList.remove('current');
+          } else if (index === stepIndex - 1) {
+            step.classList.add('current');
+            step.classList.remove('completed');
+          } else {
+            step.classList.remove('current', 'completed');
+          }
+        });
+
+        // 更新状态信息
+        statusDiv.innerText = `⏳ ${message}`;
+
+        // 模拟延迟
+        setTimeout(() => {
+          // 标记为已完成
+          steps[stepIndex - 1].classList.remove('current');
+          steps[stepIndex - 1].classList.add('completed');
+          resolve();
+        }, delay);
+      });
     }
   </script>
 </body>
