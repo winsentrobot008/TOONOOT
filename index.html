@@ -14,6 +14,7 @@
       --sub:#94A3B8;
       --ok:#10B981;
       --run:#F59E0B;
+      --view:#6366F1;
     }
     body{background:var(--bg);color:var(--text);padding:24px}
     .wrap{max-width:900px;margin:0 auto}
@@ -27,12 +28,22 @@
     .btn:disabled{opacity:0.5;cursor:not-allowed}
     .status{padding:14px;border-radius:10px;background:var(--bg);margin-top:18px;display:none}
     video{width:100%;border-radius:12px;margin-top:20px;display:none}
+    .progress-bar{width:100%;height:8px;background:#334155;border-radius:4px;margin:16px 0;overflow:hidden}
+    .progress-fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--ok));width:0%;transition:width 0.3s ease}
     .step-list{margin-top:25px}
-    .step-item{display:flex;align-items:center;padding:12px;background:var(--bg);border-radius:10px;margin-bottom:9px}
+    .step-item{display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--bg);border-radius:10px;margin-bottom:9px}
+    .step-left{display:flex;align-items:center}
     .step-num{width:28px;height:28px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;margin-right:12px}
     .step-item.curr .step-num{background:var(--run)}
     .step-item.fin .step-num{background:var(--ok)}
+    .view-btn{padding:4px 10px;background:var(--view);border:none;border-radius:6px;color:#fff;font-size:12px;cursor:pointer;display:none}
+    .step-item.fin .view-btn{display:block}
     .foot-note{text-align:center;font-size:12px;color:var(--sub);margin-top:35px}
+    .preview-modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);display:none;align-items:center;justify-content:center;z-index:999}
+    .preview-box{background:var(--card);padding:20px;border-radius:14px;max-width:600px;width:90%;max-height:80vh;overflow:auto}
+    .close-btn{text-align:right;margin-bottom:10px}
+    .close-btn button{background:#ef4444;color:#fff;border:none;padding:5px 12px;border-radius:6px;cursor:pointer}
+    .preview-content{line-height:1.6;color:#eee}
   </style>
 </head>
 <body>
@@ -53,24 +64,59 @@
     <p class="tip" id="pageDesc">输入文案，一键自动生成成片视频</p>
     <textarea id="inputArea" placeholder="在此输入创作文案内容..."></textarea>
     <button class="btn" id="genBtn" onclick="createVideo()">开始生成视频</button>
+    <div class="progress-bar">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
     <div id="stateBox" class="status"></div>
     <video id="videoPlay" controls></video>
   </div>
 
   <div class="panel step-list" id="stepBox" style="display:none">
     <h3 id="procTitle">生成进度流程</h3>
-    <div class="step-item" id="s1"><div class="step-num">1</div><span id="txt1">文案改写优化</span></div>
-    <div class="step-item" id="s2"><div class="step-num">2</div><span id="txt2">内容剧本创作</span></div>
-    <div class="step-item" id="s3"><div class="step-num">3</div><span id="txt3">分镜头脚本制作</span></div>
-    <div class="step-item" id="s4"><div class="step-num">4</div><span id="txt4">AI场景图片生成</span></div>
-    <div class="step-item" id="s5"><div class="step-num">5</div><span id="txt5">视频剪辑合成</span></div>
-    <div class="step-item" id="s6"><div class="step-num">6</div><span id="txt6">智能语音配音</span></div>
-    <div class="step-item" id="s7"><div class="step-num">7</div><span id="txt7">自动字幕匹配</span></div>
-    <div class="step-item" id="s8"><div class="step-num">8</div><span id="txt8">最终成片导出</span></div>
+    <div class="step-item" id="s1">
+      <div class="step-left"><div class="step-num">1</div><span id="txt1">文案改写优化</span></div>
+      <button class="view-btn" onclick="openPreview(1)">查看结果</button>
+    </div>
+    <div class="step-item" id="s2">
+      <div class="step-left"><div class="step-num">2</div><span id="txt2">内容剧本创作</span></div>
+      <button class="view-btn" onclick="openPreview(2)">查看结果</button>
+    </div>
+    <div class="step-item" id="s3">
+      <div class="step-left"><div class="step-num">3</div><span id="txt3">分镜头脚本制作</span></div>
+      <button class="view-btn" onclick="openPreview(3)">查看结果</button>
+    </div>
+    <div class="step-item" id="s4">
+      <div class="step-left"><div class="step-num">4</div><span id="txt4">AI场景图片生成</span></div>
+      <button class="view-btn" onclick="openPreview(4)">查看结果</button>
+    </div>
+    <div class="step-item" id="s5">
+      <div class="step-left"><div class="step-num">5</div><span id="txt5">视频剪辑合成</span></div>
+      <button class="view-btn" onclick="openPreview(5)">查看结果</button>
+    </div>
+    <div class="step-item" id="s6">
+      <div class="step-left"><div class="step-num">6</div><span id="txt6">智能语音配音</span></div>
+      <button class="view-btn" onclick="openPreview(6)">查看结果</button>
+    </div>
+    <div class="step-item" id="s7">
+      <div class="step-left"><div class="step-num">7</div><span id="txt7">自动字幕匹配</span></div>
+      <button class="view-btn" onclick="openPreview(7)">查看结果</button>
+    </div>
+    <div class="step-item" id="s8">
+      <div class="step-left"><div class="step-num">8</div><span id="txt8">最终成片导出</span></div>
+      <button class="view-btn" onclick="openPreview(8)">查看结果</button>
+    </div>
   </div>
 
   <div class="foot-note">
     瑞典合规架构 | API安全防护 | 用户数据加密保护
+  </div>
+</div>
+
+<!-- 预览弹窗 -->
+<div class="preview-modal" id="previewModal">
+  <div class="preview-box">
+    <div class="close-btn"><button onclick="closePreview()">关闭</button></div>
+    <div class="preview-content" id="previewContent"></div>
   </div>
 </div>
 
@@ -99,6 +145,9 @@ const langData = {
   }
 };
 
+// 各步骤缓存结果
+let stepResult = {};
+
 function switchLang(){
   let l = document.getElementById("langSel").value;
   let d = langData[l];
@@ -122,6 +171,24 @@ const state=document.getElementById("stateBox");
 const video=document.getElementById("videoPlay");
 const stepBox=document.getElementById("stepBox");
 const steps=[...document.querySelectorAll(".step-item")];
+const progressFill=document.getElementById("progressFill");
+const previewModal=document.getElementById("previewModal");
+const previewContent=document.getElementById("previewContent");
+
+// 模拟各步骤产出内容
+function getStepMockResult(idx,originText){
+  switch(idx){
+    case 1:return `【改写后文案】\n${originText}\n优化润色完成，增强画面叙事感`;
+    case 2:return `【完整剧本】\n场景、人物、对白框架已搭建完毕`;
+    case 3:return `【分镜头脚本】\n共计8组镜头，时长与运镜参数已设定`;
+    case 4:return `【生成场景原画】\n批量生成对应剧情画面素材`;
+    case 5:return `【剪辑序列】\n画面拼接、转场节奏初步合成`;
+    case 6:return `【配音音频】\n匹配人物声线与语速音频文件`;
+    case 7:return `【字幕时序】\n文字与音画时间轴对齐完成`;
+    case 8:return `【最终成片】\n完整MP4视频文件，可预览播放`;
+    default:return "暂无内容";
+  }
+}
 
 async function createVideo(){
   let text=document.getElementById("inputArea").value.trim();
@@ -132,29 +199,44 @@ async function createVideo(){
   stepBox.style.display="block";
   video.style.display="none";
   steps.forEach(s=>s.className="step-item");
+  progressFill.style.width="0%";
+  stepResult={};
 
-  await delay(1000);await setStep(1);
-  await delay(1000);await setStep(2);
-  await delay(1000);await setStep(3);
-  await delay(1000);await setStep(4);
-  await delay(1000);await setStep(5);
-  await delay(1000);await setStep(6);
-  await delay(1000);await setStep(7);
-  await delay(1000);await setStep(8);
+  await delay(800);await setStep(1,text);
+  await delay(800);await setStep(2,text);
+  await delay(800);await setStep(3,text);
+  await delay(800);await setStep(4,text);
+  await delay(800);await setStep(5,text);
+  await delay(800);await setStep(6,text);
+  await delay(800);await setStep(7,text);
+  await delay(800);await setStep(8,text);
 
   state.innerText=langData.zh.succ;
+  video.src="https://www.w3schools.com/html/mov_bbb.mp4";
   video.style.display="block";
-  video.src="#";
   btn.disabled=false;
 }
 
 function delay(ms){return new Promise(res=>setTimeout(res,ms))}
-async function setStep(idx){
+async function setStep(idx,text){
+  let percent = (idx / 8) * 100;
+  progressFill.style.width = percent + "%";
   steps.forEach((s,i)=>{
     if(i<idx-1)s.className="step-item fin";
     else if(i===idx-1)s.className="step-item curr";
     else s.className="step-item";
-  })
+  });
+  stepResult[idx] = getStepMockResult(idx,text);
+}
+
+// 打开单步预览
+function openPreview(idx){
+  let res = stepResult[idx] || "该步骤尚未完成生成";
+  previewContent.innerText = res;
+  previewModal.style.display="flex";
+}
+function closePreview(){
+  previewModal.style.display="none";
 }
 </script>
 </body>
