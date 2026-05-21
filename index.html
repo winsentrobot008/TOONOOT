@@ -39,11 +39,25 @@
     .view-btn{padding:4px 10px;background:var(--view);border:none;border-radius:6px;color:#fff;font-size:12px;cursor:pointer;display:none}
     .step-item.fin .view-btn{display:block}
     .foot-note{text-align:center;font-size:12px;color:var(--sub);margin-top:35px}
-    .preview-modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);display:none;align-items:center;justify-content:center;z-index:999}
-    .preview-box{background:var(--card);padding:20px;border-radius:14px;max-width:600px;width:90%;max-height:80vh;overflow:auto}
-    .close-btn{text-align:right;margin-bottom:10px}
-    .close-btn button{background:#ef4444;color:#fff;border:none;padding:5px 12px;border-radius:6px;cursor:pointer}
-    .preview-content{line-height:1.6;color:#eee}
+    /* 新增：步骤结果展示区域 */
+    .step-result-container {
+      margin-top: 15px;
+      padding: 15px;
+      background-color: var(--bg);
+      border-radius: 10px;
+      display: none;
+    }
+    .step-result-title {
+      font-size: 14px;
+      color: var(--sub);
+      margin-bottom: 10px;
+    }
+    .step-result-content {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text);
+      white-space: pre-wrap; /* 保留换行 */
+    }
   </style>
 </head>
 <body>
@@ -75,48 +89,87 @@
     <h3 id="procTitle">生成进度流程</h3>
     <div class="step-item" id="s1">
       <div class="step-left"><div class="step-num">1</div><span id="txt1">文案改写优化</span></div>
-      <button class="view-btn" onclick="openPreview(1)">查看结果</button>
+      <button class="view-btn" onclick="toggleStepResult(1)">查看结果</button>
     </div>
+    <!-- 新增：步骤1的结果展示区 -->
+    <div class="step-result-container" id="result1">
+      <div class="step-result-title">文案改写优化结果：</div>
+      <div class="step-result-content" id="content1"></div>
+    </div>
+
     <div class="step-item" id="s2">
       <div class="step-left"><div class="step-num">2</div><span id="txt2">内容剧本创作</span></div>
-      <button class="view-btn" onclick="openPreview(2)">查看结果</button>
+      <button class="view-btn" onclick="toggleStepResult(2)">查看结果</button>
     </div>
+    <!-- 新增：步骤2的结果展示区 -->
+    <div class="step-result-container" id="result2">
+      <div class="step-result-title">内容剧本创作结果：</div>
+      <div class="step-result-content" id="content2"></div>
+    </div>
+
     <div class="step-item" id="s3">
       <div class="step-left"><div class="step-num">3</div><span id="txt3">分镜头脚本制作</span></div>
-      <button class="view-btn" onclick="openPreview(3)">查看结果</button>
+      <button class="view-btn" onclick="toggleStepResult(3)">查看结果</button>
     </div>
+    <!-- 新增：步骤3的结果展示区 -->
+    <div class="step-result-container" id="result3">
+      <div class="step-result-title">分镜头脚本制作结果：</div>
+      <div class="step-result-content" id="content3"></div>
+    </div>
+
     <div class="step-item" id="s4">
       <div class="step-left"><div class="step-num">4</div><span id="txt4">AI场景图片生成</span></div>
-      <button class="view-btn" onclick="openPreview(4)">查看结果</button>
+      <button class="view-btn" onclick="toggleStepResult(4)">查看结果</button>
     </div>
+    <!-- 新增：步骤4的结果展示区 -->
+    <div class="step-result-container" id="result4">
+      <div class="step-result-title">AI场景图片生成结果：</div>
+      <div class="step-result-content" id="content4"></div>
+    </div>
+
     <div class="step-item" id="s5">
       <div class="step-left"><div class="step-num">5</div><span id="txt5">视频剪辑合成</span></div>
-      <button class="view-btn" onclick="openPreview(5)">查看结果</button>
+      <button class="view-btn" onclick="toggleStepResult(5)">查看结果</button>
     </div>
+    <!-- 新增：步骤5的结果展示区 -->
+    <div class="step-result-container" id="result5">
+      <div class="step-result-title">视频剪辑合成结果：</div>
+      <div class="step-result-content" id="content5"></div>
+    </div>
+
     <div class="step-item" id="s6">
       <div class="step-left"><div class="step-num">6</div><span id="txt6">智能语音配音</span></div>
-      <button class="view-btn" onclick="openPreview(6)">查看结果</button>
+      <button class="view-btn" onclick="toggleStepResult(6)">查看结果</button>
     </div>
+    <!-- 新增：步骤6的结果展示区 -->
+    <div class="step-result-container" id="result6">
+      <div class="step-result-title">智能语音配音结果：</div>
+      <div class="step-result-content" id="content6"></div>
+    </div>
+
     <div class="step-item" id="s7">
       <div class="step-left"><div class="step-num">7</div><span id="txt7">自动字幕匹配</span></div>
-      <button class="view-btn" onclick="openPreview(7)">查看结果</button>
+      <button class="view-btn" onclick="toggleStepResult(7)">查看结果</button>
     </div>
+    <!-- 新增：步骤7的结果展示区 -->
+    <div class="step-result-container" id="result7">
+      <div class="step-result-title">自动字幕匹配结果：</div>
+      <div class="step-result-content" id="content7"></div>
+    </div>
+
     <div class="step-item" id="s8">
       <div class="step-left"><div class="step-num">8</div><span id="txt8">最终成片导出</span></div>
-      <button class="view-btn" onclick="openPreview(8)">查看结果</button>
+      <button class="view-btn" onclick="toggleStepResult(8)">查看结果</button>
+    </div>
+    <!-- 新增：步骤8的结果展示区 -->
+    <div class="step-result-container" id="result8">
+      <div class="step-result-title">最终成片导出结果：</div>
+      <div class="step-result-content" id="content8"></div>
     </div>
   </div>
 
   <div class="foot-note">
     瑞典合规架构 | API安全防护 | 用户数据加密保护
-  </div>
-</div>
-
-<!-- 预览弹窗 -->
-<div class="preview-modal" id="previewModal">
-  <div class="preview-box">
-    <div class="close-btn"><button onclick="closePreview()">关闭</button></div>
-    <div class="preview-content" id="previewContent"></div>
   </div>
 </div>
 
@@ -172,21 +225,30 @@ const video=document.getElementById("videoPlay");
 const stepBox=document.getElementById("stepBox");
 const steps=[...document.querySelectorAll(".step-item")];
 const progressFill=document.getElementById("progressFill");
-const previewModal=document.getElementById("previewModal");
-const previewContent=document.getElementById("previewContent");
 
-// 模拟各步骤产出内容
-function getStepMockResult(idx,originText){
+// 模拟各步骤产出内容（新版本：根据输入文案生成不同结果）
+function getStepMockResult(idx, originText) {
+  // 为了让结果看起来不同，我们在原始文案基础上进行扩展
+  const baseText = originText || "这是一个关于AI生成视频的故事";
+  const variations = [
+    "，充满了科技感和未来感。",
+    "，展现了人类与人工智能的和谐共处。",
+    "，描绘了一幅充满想象力的画面。",
+    "，节奏紧凑，引人入胜。"
+  ];
+  // 使用索引和原始文本来“随机”选择一个变体
+  const variation = variations[idx % variations.length];
+
   switch(idx){
-    case 1:return `【改写后文案】\n${originText}\n优化润色完成，增强画面叙事感`;
-    case 2:return `【完整剧本】\n场景、人物、对白框架已搭建完毕`;
-    case 3:return `【分镜头脚本】\n共计8组镜头，时长与运镜参数已设定`;
-    case 4:return `【生成场景原画】\n批量生成对应剧情画面素材`;
-    case 5:return `【剪辑序列】\n画面拼接、转场节奏初步合成`;
-    case 6:return `【配音音频】\n匹配人物声线与语速音频文件`;
-    case 7:return `【字幕时序】\n文字与音画时间轴对齐完成`;
-    case 8:return `【最终成片】\n完整MP4视频文件，可预览播放`;
-    default:return "暂无内容";
+    case 1: return `【改写后文案】\n${baseText}${variation}\n\n优化润色完成，增强了画面叙事感和语言流畅度。`;
+    case 2: return `【完整剧本】\n根据您的文案，我们构建了一个包含3个场景、2个主要角色的故事框架。\n\n核心剧情：${baseText}${variation}`;
+    case 3: return `【分镜头脚本】\n共计8组镜头，已为您设定好每个镜头的时长、景别和运镜方式。\n\n镜头1：全景，缓慢推近，展现故事发生的宏大背景。`;
+    case 4: return `【生成场景原画】\n已为您的故事生成了4张关键场景的AI原画。\n\n画面描述：一个充满未来感的实验室，AI正在分析${baseText}的核心要素。`;
+    case 5: return `【剪辑序列】\n画面拼接、转场节奏初步合成。\n\n剪辑思路：根据分镜头脚本，将AI生成的画面按顺序排列，并添加了平滑的转场效果。`;
+    case 6: return `【配音音频】\n匹配了富有磁性的男声进行配音。\n\n配音文本：${baseText}${variation}`;
+    case 7: return `【字幕时序】\n文字与音画时间轴对齐完成。\n\n字幕示例：${baseText}`;
+    case 8: return `【最终成片】\n完整MP4视频文件，已为您合成了画面、配音和字幕。\n\n视频正在加载中，请稍候...`;
+    default: return "暂无内容";
   }
 }
 
@@ -212,13 +274,15 @@ async function createVideo(){
   await delay(800);await setStep(8,text);
 
   state.innerText=langData.zh.succ;
+  // 这里我们仍然使用测试视频URL，但在真实场景中，
+  // 这里应该调用一个根据文案生成视频的API，并返回对应的视频URL。
   video.src="https://www.w3schools.com/html/mov_bbb.mp4";
   video.style.display="block";
   btn.disabled=false;
 }
 
 function delay(ms){return new Promise(res=>setTimeout(res,ms))}
-async function setStep(idx,text){
+async function setStep(idx, text){
   let percent = (idx / 8) * 100;
   progressFill.style.width = percent + "%";
   steps.forEach((s,i)=>{
@@ -226,17 +290,21 @@ async function setStep(idx,text){
     else if(i===idx-1)s.className="step-item curr";
     else s.className="step-item";
   });
-  stepResult[idx] = getStepMockResult(idx,text);
+  // 生成并保存当前步骤的结果
+  const result = getStepMockResult(idx, text);
+  stepResult[idx] = result;
+  // 同时更新到对应的内容区域
+  document.getElementById(`content${idx}`).innerText = result;
 }
 
-// 打开单步预览
-function openPreview(idx){
-  let res = stepResult[idx] || "该步骤尚未完成生成";
-  previewContent.innerText = res;
-  previewModal.style.display="flex";
-}
-function closePreview(){
-  previewModal.style.display="none";
+// 新增：切换步骤结果的显示/隐藏
+function toggleStepResult(idx) {
+  const resultDiv = document.getElementById(`result${idx}`);
+  if (resultDiv.style.display === "none" || resultDiv.style.display === "") {
+    resultDiv.style.display = "block";
+  } else {
+    resultDiv.style.display = "none";
+  }
 }
 </script>
 </body>
