@@ -3,19 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TOONOOT AI视频生成</title>
+  <title>TOONOOT - AI Video Generator</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box;font-family:system-ui}
-    :root{
-      --primary:#165DFF;
-      --bg:#0F172A;
-      --card:#1E293B;
-      --text:#F8FAFC;
-      --sub:#94A3B8;
-      --ok:#10B981;
-      --run:#F59E0B;
-      --view:#6366F1;
-    }
+    :root{--primary:#165DFF;--bg:#0F172A;--card:#1E293B;--text:#F8FAFC;--sub:#94A3B8;--ok:#10B981;--run:#F59E0B}
     body{background:var(--bg);color:var(--text);padding:24px}
     .wrap{max-width:900px;margin:0 auto}
     .head{display:flex;justify-content:space-between;align-items:center;margin-bottom:25px}
@@ -25,23 +16,18 @@
     .tip{color:var(--sub);margin-bottom:20px}
     textarea{width:100%;height:130px;background:var(--bg);border:1px solid #334155;border-radius:12px;padding:15px;color:var(--text);font-size:15px;resize:none;margin-bottom:15px}
     .btn{width:100%;padding:15px;background:var(--primary);color:#fff;border:none;border-radius:12px;font-size:16px;cursor:pointer}
-    .btn:disabled{opacity:0.5;cursor:not-allowed}
+    .btn:disabled{opacity:0.5}
+    .progress-bar{width:100%;height:8px;background:#334155;border-radius:4px;margin:16px 0}
+    .progress-fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--ok));width:0%;transition:width 0.3s}
     .status{padding:14px;border-radius:10px;background:var(--bg);margin-top:18px;display:none}
     video{width:100%;border-radius:12px;margin-top:20px;display:none}
-    .progress-bar{width:100%;height:8px;background:#334155;border-radius:4px;margin:16px 0;overflow:hidden}
-    .progress-fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--ok));width:0%;transition:width 0.3s ease}
-    .step-list{margin-top:25px}
     .step-item{display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--bg);border-radius:10px;margin-bottom:9px}
-    .step-left{display:flex;align-items:center}
     .step-num{width:28px;height:28px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;margin-right:12px}
     .step-item.curr .step-num{background:var(--run)}
     .step-item.fin .step-num{background:var(--ok)}
-    .view-btn{padding:4px 10px;background:var(--view);border:none;border-radius:6px;color:#fff;font-size:12px;cursor:pointer;display:none}
+    .view-btn{padding:4px 10px;background:#6366F1;border:none;border-radius:6px;color:#fff;font-size:12px;display:none}
     .step-item.fin .view-btn{display:block}
-    .foot-note{text-align:center;font-size:12px;color:var(--sub);margin-top:35px}
-    .step-result-container {margin-top:15px;padding:15px;background-color:var(--bg);border-radius:10px;display:none}
-    .step-result-title {font-size:14px;color:var(--sub);margin-bottom:10px}
-    .step-result-content {font-size:14px;line-height:1.6;color:var(--text);white-space:pre-wrap}
+    .step-result{margin-top:10px;padding:12px;background:var(--bg);border-radius:8px;display:none;font-size:13px;color:#ccc}
   </style>
 </head>
 <body>
@@ -49,231 +35,46 @@
   <div class="head">
     <h2>TOONOOT</h2>
     <div class="lang-box">
-      <select id="langSel" onchange="switchLang()">
+      <select id="lang" onchange="setLang()">
         <option value="zh">简体中文</option>
-        <option value="sv">Svenska</option>
         <option value="en">English</option>
+        <option value="sv">Svenska</option>
       </select>
     </div>
   </div>
 
   <div class="panel">
-    <h1 id="pageTitle">AI全自动视频生成</h1>
-    <p class="tip" id="pageDesc">输入文案，一键自动生成成片视频</p>
-    <textarea id="inputArea" placeholder="在此输入创作文案内容..."></textarea>
-    <button class="btn" id="genBtn" onclick="createVideo()">开始生成视频</button>
-    <div class="progress-bar">
-      <div class="progress-fill" id="progressFill"></div>
-    </div>
-    <div id="stateBox" class="status"></div>
-    <video id="videoPlay" controls></video>
+    <h1 id="title">AI全自动视频生成</h1>
+    <p id="desc">输入文案，自动完成全流程创作</p>
+    <textarea id="text" placeholder="请输入创作文案"></textarea>
+    <button class="btn" onclick="start()">生成视频</button>
+    <div class="progress-bar"><div class="progress-fill" id="bar"></div></div>
+    <div id="status" class="status"></div>
+    <video id="video" controls></video>
   </div>
 
-  <div class="panel step-list" id="stepBox" style="display:none">
-    <h3 id="procTitle">生成进度流程</h3>
-    <div class="step-item" id="s1">
-      <div class="step-left"><div class="step-num">1</div><span id="txt1">文案改写优化</span></div>
-      <button class="view-btn" onclick="toggleStepResult(1)">查看结果</button>
-    </div>
-    <div class="step-result-container" id="result1">
-      <div class="step-result-title">文案改写优化结果：</div>
-      <div class="step-result-content" id="content1"></div>
-    </div>
-    <div class="step-item" id="s2">
-      <div class="step-left"><div class="step-num">2</div><span id="txt2">内容剧本创作</span></div>
-      <button class="view-btn" onclick="toggleStepResult(2)">查看结果</button>
-    </div>
-    <div class="step-result-container" id="result2">
-      <div class="step-result-title">内容剧本创作结果：</div>
-      <div class="step-result-content" id="content2"></div>
-    </div>
-    <div class="step-item" id="s3">
-      <div class="step-left"><div class="step-num">3</div><span id="txt3">分镜头脚本制作</span></div>
-      <button class="view-btn" onclick="toggleStepResult(3)">查看结果</button>
-    </div>
-    <div class="step-result-container" id="result3">
-      <div class="step-result-title">分镜头脚本制作结果：</div>
-      <div class="step-result-content" id="content3"></div>
-    </div>
-    <div class="step-item" id="s4">
-      <div class="step-left"><div class="step-num">4</div><span id="txt4">AI场景图片生成</span></div>
-      <button class="view-btn" onclick="toggleStepResult(4)">查看结果</button>
-    </div>
-    <div class="step-result-container" id="result4">
-      <div class="step-result-title">AI场景图片生成结果：</div>
-      <div class="step-result-content" id="content4"></div>
-    </div>
-    <div class="step-item" id="s5">
-      <div class="step-left"><div class="step-num">5</div><span id="txt5">视频剪辑合成</span></div>
-      <button class="view-btn" onclick="toggleStepResult(5)">查看结果</button>
-    </div>
-    <div class="step-result-container" id="result5">
-      <div class="step-result-title">视频剪辑合成结果：</div>
-      <div class="step-result-content" id="content5"></div>
-    </div>
-    <div class="step-item" id="s6">
-      <div class="step-left"><div class="step-num">6</div><span id="txt6">智能语音配音</span></div>
-      <button class="view-btn" onclick="toggleStepResult(6)">查看结果</button>
-    </div>
-    <div class="step-result-container" id="result6">
-      <div class="step-result-title">智能语音配音结果：</div>
-      <div class="step-result-content" id="content6"></div>
-    </div>
-    <div class="step-item" id="s7">
-      <div class="step-left"><div class="step-num">7</div><span id="txt7">自动字幕匹配</span></div>
-      <button class="view-btn" onclick="toggleStepResult(7)">查看结果</button>
-    </div>
-    <div class="step-result-container" id="result7">
-      <div class="step-result-title">自动字幕匹配结果：</div>
-      <div class="step-result-content" id="content7"></div>
-    </div>
-    <div class="step-item" id="s8">
-      <div class="step-left"><div class="step-num">8</div><span id="txt8">最终成片导出</span></div>
-      <button class="view-btn" onclick="toggleStepResult(8)">查看结果</button>
-    </div>
-    <div class="step-result-container" id="result8">
-      <div class="step-result-title">最终成片导出结果：</div>
-      <div class="step-result-content" id="content8"></div>
-    </div>
-  </div>
-
-  <div class="foot-note">
-    瑞典合规架构 | API安全防护 | 用户数据加密保护
+  <div class="panel" id="steps" style="display:none">
+    <h3 id="proc">生成进度</h3>
+    <div class="step-item" id="p1"><div><div class="step-num">1</div>文案改写</div><button onclick="v(1)">查看</button></div><div id="r1" class="step-result"></div>
+    <div class="step-item" id="p2"><div><div class="step-num">2</div>剧本创作</div><button onclick="v(2)">查看</button></div><div id="r2" class="step-result"></div>
+    <div class="step-item" id="p3"><div><div class="step-num">3</div>分镜头</div><button onclick="v(3)">查看</button></div><div id="r3" class="step-result"></div>
+    <div class="step-item" id="p4"><div><div class="step-num">4</div>图片生成</div><button onclick="v(4)">查看</button></div><div id="r4" class="step-result"></div>
+    <div class="step-item" id="p5"><div><div class="step-num">5</div>视频合成</div><button onclick="v(5)">查看</button></div><div id="r5" class="step-result"></div>
+    <div class="step-item" id="p6"><div><div class="step-num">6</div>配音</div><button onclick="v(6)">查看</button></div><div id="r6" class="step-result"></div>
+    <div class="step-item" id="p7"><div><div class="step-num">7</div>字幕</div><button onclick="v(7)">查看</button></div><div id="r7" class="step-result"></div>
+    <div class="step-item" id="p8"><div><div class="step-num">8</div>成片导出</div><button onclick="v(8)">查看</button></div><div id="r8" class="step-result"></div>
   </div>
 </div>
 
 <script>
-const langData = {
-  zh:{
-    title:"AI全自动视频生成",desc:"输入文案，一键自动生成成片视频",
-    place:"在此输入创作文案内容...",btn:"开始生成视频",proc:"生成进度流程",
-    t1:"文案改写优化",t2:"内容剧本创作",t3:"分镜头脚本制作",t4:"AI场景图片生成",
-    t5:"视频剪辑合成",t6:"智能语音配音",t7:"自动字幕匹配",t8:"最终成片导出",
-    run:"正在处理中...",succ:"视频生成完成",err:"生成出现异常"
-  },
-  sv:{
-    title:"AI Automatisk Videoproduktion",desc:"Skriv text, skapa video med ett klick",
-    place:"Skriv ditt innehåll här...",btn:"Skapa Video",proc:"Framsteg",
-    t1:"Textförbättring",t2:"Manusskapande",t3:"Storyboard",t4:"Bildgenerering",
-    t5:"Videoredigering",t6:"Röstinspelning",t7:"Undertext",t8:"Exportera video",
-    run:"Bearbetar...",succ:"Video klar",err:"Fel uppstod"
-  },
-  en:{
-    title:"AI Automatic Video Generator",desc:"Input text and generate video one-click",
-    place:"Write your content here...",btn:"Generate Video",proc:"Process Progress",
-    t1:"Text Rewrite",t2:"Script Writing",t3:"Storyboard",t4:"Image Generation",
-    t5:"Video Edit",t6:"Voice Dubbing",t7:"Subtitle Add",t8:"Export Final Video",
-    run:"Processing...",succ:"Video finished",err:"Generation error"
-  }
-};
-let stepResult = {};
-
-function switchLang(){
-  let l = document.getElementById("langSel").value;
-  let d = langData[l];
-  document.getElementById("pageTitle").innerText=d.title;
-  document.getElementById("pageDesc").innerText=d.desc;
-  document.getElementById("inputArea").placeholder=d.place;
-  document.getElementById("genBtn").innerText=d.btn;
-  document.getElementById("procTitle").innerText=d.proc;
-  document.getElementById("txt1").innerText=d.t1;
-  document.getElementById("txt2").innerText=d.t2;
-  document.getElementById("txt3").innerText=d.t3;
-  document.getElementById("txt4").innerText=d.t4;
-  document.getElementById("txt5").innerText=d.t5;
-  document.getElementById("txt6").innerText=d.t6;
-  document.getElementById("txt7").innerText=d.t7;
-  document.getElementById("txt8").innerText=d.t8;
-}
-
-const btn=document.getElementById("genBtn");
-const state=document.getElementById("stateBox");
-const video=document.getElementById("videoPlay");
-const stepBox=document.getElementById("stepBox");
-const steps=[...document.querySelectorAll(".step-item")];
-const progressFill=document.getElementById("progressFill");
-
-function getStepMockResult(idx, originText) {
-  const baseText = originText || "默认创作故事";
-  const variants = ["科技未来","自然风景","都市生活","奇幻冒险"];
-  let topic = variants[Math.abs(hashCode(baseText)+idx) % variants.length];
-  switch(idx){
-    case 1:return `【改写后文案】\n${baseText}\n优化适配${topic}风格叙事逻辑`;
-    case 2:return `【完整剧本】\n围绕${topic}主题搭建剧情人物框架`;
-    case 3:return `【分镜头脚本】\n适配${topic}画面运镜与时长规划`;
-    case 4:return `【生成场景原画】\n产出${topic}风格场景画面素材`;
-    case 5:return `【剪辑序列】\n${topic}风格画面拼接转场合成`;
-    case 6:return `【配音音频】\n匹配${topic}氛围人声配音`;
-    case 7:return `【字幕时序】\n贴合${topic}剧情字幕对齐`;
-    case 8:return `【最终成片】\n${topic}主题专属视频成品`;
-    default:return "暂无内容";
-  }
-}
-
-// 文本哈希生成不同视频地址，实现文案对应不同视频
-function hashCode(str){
-  let hash=0;
-  for(let i=0;i<str.length;i++){
-    let char=str.charCodeAt(i);
-    hash=((hash<<5)-hash)+char;
-    hash=hash&hash;
-  }
-  return hash;
-}
-function getDiffVideo(text){
-  const list=[
-    "https://www.w3schools.com/html/mov_bbb.mp4",
-    "https://www.w3schools.com/html/movie.mp4"
-  ];
-  let idx=Math.abs(hashCode(text))%list.length;
-  return list[idx];
-}
-
-async function createVideo(){
-  let text=document.getElementById("inputArea").value.trim();
-  if(!text){alert("请输入创作文案");return;}
-  btn.disabled=true;
-  state.style.display="block";
-  state.innerText=langData.zh.run;
-  stepBox.style.display="block";
-  video.style.display="none";
-  steps.forEach(s=>s.className="step-item");
-  progressFill.style.width="0%";
-  stepResult={};
-
-  await delay(800);await setStep(1,text);
-  await delay(800);await setStep(2,text);
-  await delay(800);await setStep(3,text);
-  await delay(800);await setStep(4,text);
-  await delay(800);await setStep(5,text);
-  await delay(800);await setStep(6,text);
-  await delay(800);await setStep(7,text);
-  await delay(800);await setStep(8,text);
-
-  state.innerText=langData.zh.succ;
-  video.src=getDiffVideo(text);
-  video.style.display="block";
-  btn.disabled=false;
-}
-
-function delay(ms){return new Promise(res=>setTimeout(res,ms))}
-async function setStep(idx, text){
-  let percent = (idx / 8) * 100;
-  progressFill.style.width = percent + "%";
-  steps.forEach((s,i)=>{
-    if(i<idx-1)s.className="step-item fin";
-    else if(i===idx-1)s.className="step-item curr";
-    else s.className="step-item";
-  });
-  const result = getStepMockResult(idx, text);
-  stepResult[idx] = result;
-  document.getElementById(`content${idx}`).innerText = result;
-}
-
-function toggleStepResult(idx) {
-  const div = document.getElementById(`result${idx}`);
-  div.style.display = div.style.display==="block"?"none":"block";
-}
+const L={zh:{title:"AI全自动视频生成",desc:"输入文案，自动完成全流程创作",proc:"生成进度"},en:{title:"AI Video Generator",desc:"Generate full video automatically",proc:"Progress"},sv:{title:"AI Videogenerator",desc:"Skapa video automatiskt",proc:"Förlopp"}};
+function setLang(){let a=document.getElementById("lang").value,t=L[a];document.getElementById("title").innerText=t.title,document.getElementById("desc").innerText=t.desc,document.getElementById("proc").innerText=t.proc}
+const st=async(i,t)=>{document.getElementById("p"+i).className="step-item curr",document.getElementById("bar").style.width=i/8*100+"%";await new Promise(n=>setTimeout(n,800));document.getElementById("p"+i).className="step-item fin",document.getElementById("r"+i).innerText="步骤 "+i+" 已完成"};
+const v=i=>{let a=document.getElementById("r"+i);a.style.display=a.style.display?"none":"block"};
+async function start(){let a=document.getElementById("text").value.trim();if(!a)return alert("请输入文案");document.querySelector(".btn").disabled=!0,document.getElementById("status").style.display="block",document.getElementById("status").innerText="处理中...",document.getElementById("steps").style.display="block";
+await st(1),await st(2),await st(3),await st(4),await st(5),await st(6),await st(7),await st(8);
+let e=await fetch("/.netlify/functions/generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:a})}),n=await e.json();
+document.getElementById("status").innerText=n.message,document.getElementById("video").src=n.videoUrl,document.getElementById("video").style.display="block",document.querySelector(".btn").disabled=!1}
 </script>
 </body>
 </html>
