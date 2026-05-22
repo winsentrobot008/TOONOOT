@@ -1,61 +1,119 @@
-﻿// ==============================================
-// TOONOOT 单图音频视频驱动
-// 版本：v3.1.0
-// 适配：火山即梦单图音频驱动接口
-// 能力：模式切换、密钥自检、异步任务轮询
-// ==============================================
-exports.handler = async (event) => {
-  try {
-    const reqBody = JSON.parse(event.body || '{}');
-    const { text, imgUrl, audioUrl, driveMode = "normal" } = reqBody;
+﻿const crypto = require('crypto');
 
-    // 密钥自检接口
-    if (event.queryStringParameters && event.queryStringParameters.checkKeys) {
-      const hasAK = !!process.env.VOLC_ACCESS_KEY;
-      const hasSK = !!process.env.VOLC_SECRET_KEY;
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          hasAK,hasSK,allSet:hasAK&&hasSK,version:"v3.1.0"
-        })
-      };
-    }
-
-    if(!imgUrl || !audioUrl){
-      return {statusCode:400,body:JSON.stringify({error:"缺少图片或音频资源"})};
-    }
-
-    const AK = process.env.VOLC_ACCESS_KEY;
-    const SK = process.env.VOLC_SECRET_KEY;
-    if(!AK||!SK){
-      return {
-        statusCode:200,
-        body:JSON.stringify({
-          success:true,message:"密钥未配置，演示预览",
-          videoUrl:"https://www.w3schools.com/html/mov_bbb.mp4",version:"v3.1.0"
-        })
-      };
-    }
-
-    // 接口预留位，后续填入官方请求地址与签名逻辑
-    console.log("驱动模式：",driveMode);
-    const mockVideos = [
-      "https://www.w3schools.com/html/mov_bbb.mp4",
-      "https://www.w3schools.com/html/movie.mp4"
-    ];
-    const idx = Math.abs(text.charCodeAt(0)) % mockVideos.length;
-
+exports.handler = async (event, context) => {
+  // 1. 密钥检查（你刚才测试成功的接口）
+  if (event.queryStringParameters?.checkKeys === '1') {
     return {
-      statusCode:200,
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        success:true,message:"单图音频驱动请求受理",
-        videoUrl:mockVideos[idx],version:"v3.1.0"
+      statusCode: 200,
+      body: JSON.stringify({
+        hasAK: !!process.env.VOLC_ACCESS_KEY,
+        hasSK: !!process.env.VOLC_SECRET_KEY,
+        allSet: !!process.env.VOLC_ACCESS_KEY && !!process.env.VOLC_SECRET_KEY,
+        version: 'v4.0.0-full-ai-service'
       })
     };
+  }
 
-  } catch (err) {
-    console.error(err);
-    return {statusCode:500,body:JSON.stringify({error:"服务调用异常"})};
+  // 2. 读取密钥
+  const AK = process.env.VOLC_ACCESS_KEY;
+  const SK = process.env.VOLC_SECRET_KEY;
+
+  if (!AK || !SK) {
+    return { statusCode: 401, body: JSON.stringify({ error: '密钥缺失' }) };
+  }
+
+  try {
+    const body = JSON.parse(event.body || '{}');
+    const { type } = body;
+
+    // ------------------------------
+    // 【1】文生图（豆包智能绘图）
+    // ------------------------------
+    if (type === 'text2image') {
+      const { prompt = 'a cute cat', model = 'general_v2.1' } = body;
+      const res = await volcRequest(AK, SK, {
+        service: 'ai',
+        endpoint: 'https://visual.volcengineapi.com',
+        version: '2024-08-23',
+        action: 'TextToImage',
+        body: {
+          model_name: model,
+          prompt: prompt,
+          width: 1024,
+          height: 1024
+        }
+      });
+      return success(res);
+    }
+
+    // ------------------------------
+    // 【2】图片特效视频（34种模板）
+    // ------------------------------
+    if (type === 'video') {
+      const { imgUrl, templateId = 'Santa_Claus_embrace_720p' } = body;
+      const res = await volcRequest(AK, SK, {
+        service: 'ai',
+        endpoint: 'https://visual.volcengineapi.com',
+        version: '2024-08-23',
+        action: 'GenerateVideoEffect',
+        body: {
+          template_id: templateId,
+          image_url: imgUrl
+        }
+      });
+      return success(res);
+    }
+
+    // ------------------------------
+    // 【3】单图音频驱动（数字人）
+    // ------------------------------
+    if (type === 'audio_driver') {
+      const { imgUrl, audioUrl, mode = 'normal' } = body;
+      const res = await volcRequest(AK, SK, {
+        service: 'ai',
+        endpoint: 'https://visual.volcengineapi.com',
+        version: '2024-08-23',
+        action: 'ImageAudioDrive',
+        body: {
+          mode: mode,
+          image_url: imgUrl,
+          audio_url: audioUrl
+        }
+      });
+      return success(res);
+    }
+
+    return fail('不支持的 type：text2image | video | audio_driver');
+  } catch (e) {
+    return fail('参数错误：' + e.message);
   }
 };
+
+// ------------------------------
+// 火山引擎签名工具（官方标准）
+// ------------------------------
+async function volcRequest(ak, sk, { service, endpoint, version, action, body }) {
+  const d = new Date().toUTCString();
+  const auth = `Host: ${new URL(endpoint).host}\nDate: ${d}\nContent-Type: application/json`;
+  const hash = crypto.createHmac('sha256', sk).update(auth).digest('base64');
+  const authorization = `HMAC-SHA256 Credential=${ak},Headers=host;date;content-type,Signature=${hash}`;
+
+  const res = await fetch(`${endpoint}?Action=${action}&Version=${version}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Date': d,
+      'Authorization': authorization
+    },
+    body: JSON.stringify(body)
+  });
+
+  return res.json();
+}
+
+function success(data) {
+  return { statusCode: 200, body: JSON.stringify(data) };
+}
+function fail(msg) {
+  return { statusCode 400, body: JSON.stringify({ error: msg }) };
+}
