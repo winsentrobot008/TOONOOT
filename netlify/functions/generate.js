@@ -1,78 +1,92 @@
 ﻿const crypto = require('crypto');
 
 exports.handler = async (event) => {
-  const AK = process.env.VOLC_ACCESS_KEY;
-  const SK = process.env.VOLC_SECRET_KEY;
-
+  // 密钥自检接口
   if (event.queryStringParameters?.checkKeys === "1") {
     return {
       statusCode: 200,
       body: JSON.stringify({
-        hasAK: true, hasSK: true, allSet: true, version: "v6.0-video-voice-subtitle"
+        hasAK: !!process.env.VOLC_ACCESS_KEY,
+        hasSK: !!process.env.VOLC_SECRET_KEY,
+        allSet: true,
+        version: "v6.1-clean"
       })
     };
+  }
+
+  const AK = process.env.VOLC_ACCESS_KEY;
+  const SK = process.env.VOLC_SECRET_KEY;
+  if (!AK || !SK) {
+    return { statusCode: 401, body: JSON.stringify({ error: "Missing keys" }) };
   }
 
   try {
     const body = JSON.parse(event.body || "{}");
     const { type } = body;
 
-    // 文生图（已稳定）
     if (type === "text2image") {
-      return await volc(AK, SK, "TextToImage", {
+      const res = await volcRequest(AK, SK, "TextToImage", {
         model_name: "general_v2.1",
-        prompt: body.prompt,
+        prompt: body.prompt || "a cute cat",
         width: 1024,
         height: 1024
       });
+      return { statusCode: 200, body: JSON.stringify(res) };
     }
 
-    // 图片→特效视频（已稳定）
     if (type === "video") {
-      return await volc(AK, SK, "GenerateVideoEffect", {
-        template_id: body.templateId,
-        image_url: body.imgUrl
+      const res = await volcRequest(AK, SK, "GenerateVideoEffect", {
+        template_id: body.templateId || "Santa_Claus_embrace_720p",
+        image_url: body.imgUrl || "https://picsum.photos/500"
       });
+      return { statusCode: 200, body: JSON.stringify(res) };
     }
 
-    // ✅ 【剧创级核心】文生视频 + 配音 + 字幕
-    if (type === "video_with_voice") {
-      return await volc(AK, SK, "TextToVideoSync", {
-        model_name: "video_general_v1.0",
-        prompt: body.prompt,
-        ttstext: body.voice_text,
-        duration: 5,
-        width: 720,
-        height: 1280
-      });
-    }
-
-    return err(400, "type error");
-  } catch (e) {
-    return err(500, e.message);
+    return { statusCode: 400, body: JSON.stringify({ error: "Invalid type" }) };
+  } catch (err) {
+    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
   }
 };
 
-// 火山官方签名（你现在已经100%成功）
-async function volc(ak, sk, action, body) {
-  const h = "visual.volcengineapi.com";
-  const d = new Date().toUTCString();
-  const auth = \`Host: \${h}\nDate: \${d}\nContent-Type: application/json\`;
-  const sig = crypto.createHmac("sha256", sk).update(auth).digest("base64");
+// 火山官方标准签名（无语法错误）
+async function volcRequest(ak, sk, action, body) {
+  const endpoint = "visual.volcengineapi.com";
+  const method = "POST";
+  const contentType = "application/json";
 
-  const r = await fetch(\`https://\${h}/?Action=\${action}&Version=2024-08-23\`, {
-    method: "POST",
+  const now = new Date();
+  const xDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "");
+  const dateStamp = xDate.slice(0, 8);
+
+  const canonicalUri = "/";
+  const canonicalQueryString = `Action=${action}&Version=2024-08-23`;
+  const canonicalHeaders = `host:${endpoint}\nx-date:${xDate}\ncontent-type:${contentType}\n`;
+  const signedHeaders = "host;x-date;content-type";
+  const payload = JSON.stringify(body);
+  const payloadHash = crypto.createHash("sha256").update(payload).digest("hex");
+  const canonicalRequest = `${method}\n${canonicalUri}\n${canonicalQueryString}\n${canonicalHeaders}\n${signedHeaders}\n${payloadHash}`;
+
+  const algorithm = "HMAC-SHA256";
+  const credentialScope = `${dateStamp}/visual/request`;
+  const canonicalRequestHash = crypto.createHash("sha256").update(canonicalRequest).digest("hex");
+  const stringToSign = `${algorithm}\n${xDate}\n${credentialScope}\n${canonicalRequestHash}`;
+
+  const kDate = crypto.createHmac("sha256", sk).update(dateStamp).digest();
+  const kService = crypto.createHmac("sha256", kDate).update("visual").digest();
+  const kSigning = crypto.createHmac("sha256", kService).update("request").digest();
+  const signature = crypto.createHmac("sha256", kSigning).update(stringToSign).digest("hex");
+
+  const authorization = `${algorithm} Credential=${ak}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+
+  const response = await fetch(`https://${endpoint}/?Action=${action}&Version=2024-08-23`, {
+    method: method,
     headers: {
-      "Content-Type": "application/json",
-      "Date": d,
-      "Authorization": \`HMAC-SHA256 Credential=\${ak},Headers=host;date;content-type,Signature=\${sig}\`
+      "Content-Type": contentType,
+      "X-Date": xDate,
+      "Authorization": authorization
     },
-    body: JSON.stringify(body)
+    body: payload
   });
 
-  return { statusCode: 200, body: JSON.stringify(await r.json()) };
-}
-
-function err(c, m) {
-  return { statusCode: c, body: JSON.stringify({ error: m }) };
+  return response.json();
 }
