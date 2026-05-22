@@ -1,157 +1,187 @@
 ﻿const crypto = require('crypto');
 
-// 读取你Netlify已配置的密钥（完全不动！）
+// 读取你Netlify已配置的环境变量（完全不动！）
 const VOLC_AK = process.env.VOLC_ACCESS_KEY;
 const VOLC_SK = process.env.VOLC_SECRET_KEY;
 const REGION = "cn-beijing";
-const VERSION = "v4.0-FIXED";
+const SERVICE = "visual";
+const API_VERSION = "2024-08-23";
+const VERSION = "v4.1-VOLC-READY";
 
-// 全局任务存储（修复：避免每次请求重置）
-global.tasks = global.tasks || new Map();
-
-// 标准火山V4签名（无修改）
-function sign(method, host, path, query, body) {
-  const alg = "HMAC-SHA256";
+// 标准火山V4签名算法（官方兼容）
+function signVolcRequest(ak, sk, action, body) {
+  const algorithm = "HMAC-SHA256";
   const now = new Date();
   const xDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "");
-  const date = xDate.slice(0,8);
+  const dateStamp = xDate.slice(0,8);
 
+  const host = `${SERVICE}.volcengineapi.com`;
+  const query = { Action: action, Version: API_VERSION };
+  const path = "/";
   const payload = JSON.stringify(body);
-  const hash = crypto.createHash("sha256").update(payload).digest("hex");
-  const headers = `content-type:application/json\nhost:${host}\nx-date:${xDate}\n`;
-  const signed = "content-type;host;x-date";
-  const canonical = `${method}\n${path}\n${new URLSearchParams(query)}\n${headers}\n${signed}\n${hash}`;
-  const scope = `${date}/${REGION}/visual/request`;
-  const strToSign = `${alg}\n${xDate}\n${scope}\n${crypto.createHash("sha256").update(canonical).digest("hex")}`;
+  const payloadHash = crypto.createHash("sha256").update(payload).digest("hex");
 
-  const k1 = crypto.createHmac("sha256", VOLC_SK).update(date).digest();
-  const k2 = crypto.createHmac("sha256", k1).update(REGION).digest();
-  const k3 = crypto.createHmac("sha256", k2).update("visual").digest();
-  const k4 = crypto.createHmac("sha256", k3).update("request").digest();
-  const sign = crypto.createHmac("sha256", k4).update(strToSign).digest("hex");
+  const canonicalHeaders = `content-type:application/json\nhost:${host}\nx-date:${xDate}\n`;
+  const signedHeaders = "content-type;host;x-date";
+  const canonicalRequest = `POST\n${path}\n${new URLSearchParams(query)}\n${canonicalHeaders}\n${signedHeaders}\n${payloadHash}`;
+
+  const credentialScope = `${dateStamp}/${REGION}/${SERVICE}/request`;
+  const canonicalRequestHash = crypto.createHash("sha256").update(canonicalRequest).digest("hex");
+  const stringToSign = `${algorithm}\n${xDate}\n${credentialScope}\n${canonicalRequestHash}`;
+
+  const kDate = crypto.createHmac("sha256", sk).update(dateStamp).digest();
+  const kRegion = crypto.createHmac("sha256", kDate).update(REGION).digest();
+  const kService = crypto.createHmac("sha256", kRegion).update(SERVICE).digest();
+  const kSigning = crypto.createHmac("sha256", kService).update("request").digest();
+  const signature = crypto.createHmac("sha256", kSigning).update(stringToSign).digest("hex");
 
   return {
-    "Authorization": `${alg} Credential=${VOLC_AK}/${scope}, SignedHeaders=${signed}, Signature=${sign}`,
+    "Authorization": `${algorithm} Credential=${ak}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
     "X-Date": xDate,
     "Content-Type": "application/json",
     "Host": host
   };
 }
 
-// 提交火山视频（无修改）
-async function submitVideo(prompt) {
-  const host = "visual.volcengineapi.com";
-  const q = { Action: "SubmitTextToVideoTask", Version: "2024-08-23" };
-  const body = { model_name: "video_generation_v1", prompt, width:1280, height:720, duration:5 };
-  const headers = sign("POST", host, "/", q, body);
-  const res = await fetch(`https://${host}/?${new URLSearchParams(q)}`, {
-    method: "POST", headers, body: JSON.stringify(body)
+// 提交火山视频生成任务
+async function submitVideoTask(prompt) {
+  const action = "SubmitTextToVideoTask";
+  const body = {
+    model_name: "video_generation_v1",
+    prompt: prompt,
+    width: 1280,
+    height: 720,
+    duration: 5
+  };
+  const headers = signVolcRequest(VOLC_AK, VOLC_SK, action, body);
+  const url = `https://${SERVICE}.volcengineapi.com/?Action=${action}&Version=${API_VERSION}`;
+  
+  const response = await fetch(url, {
+    method: "POST",
+    headers: headers,
+    body: JSON.stringify(body)
   });
-  return res.json();
+  return await response.json();
 }
 
-// 查询火山任务（无修改）
-async function queryVideo(taskId) {
-  const host = "visual.volcengineapi.com";
-  const q = { Action: "GetTextToVideoTaskResult", Version: "2024-08-23" };
+// 查询火山视频生成任务结果
+async function queryVideoTaskResult(taskId) {
+  const action = "GetTextToVideoTaskResult";
   const body = { task_id: taskId };
-  const headers = sign("POST", host, "/", q, body);
-  const res = await fetch(`https://${host}/?${new URLSearchParams(q)}`, {
-    method: "POST", headers, body: JSON.stringify(body)
+  const headers = signVolcRequest(VOLC_AK, VOLC_SK, action, body);
+  const url = `https://${SERVICE}.volcengineapi.com/?Action=${action}&Version=${API_VERSION}`;
+  
+  const response = await fetch(url, {
+    method: "POST",
+    headers: headers,
+    body: JSON.stringify(body)
   });
-  return res.json();
+  return await response.json();
 }
 
 exports.handler = async (event) => {
-  // 版本接口
-  if(event.queryStringParameters?.check === "1"){
+  // 版本检测接口
+  if (event.queryStringParameters?.check === "1") {
     return {
-      statusCode:200,
-      headers:{"Cache-Control":"no-cache","Access-Control-Allow-Origin":"*"},
-      body:JSON.stringify({version:VERSION})
+      statusCode: 200,
+      headers: {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Access-Control-Allow-Origin": "*"
+      },
+      body: JSON.stringify({
+        version: VERSION,
+        status: "ready"
+      })
     };
   }
 
   try {
-    // 🔥 修复1：兼容空请求，避免崩溃
-    const reqBody = event.body ? JSON.parse(event.body) : {};
-    const action = reqBody.action;
-    const prompt = reqBody.prompt || "";
-    const task_id = reqBody.task_id || ""; // 🔥 修复2：task_id 必定义，解决报错
+    const reqBody = JSON.parse(event.body || "{}");
+    const { action, prompt, task_id } = reqBody;
 
-    if(action === "submit"){
-      const taskId = `t${Date.now()}`;
-      global.tasks.set(taskId, { status:"running", text:"提交中" });
-
-      // 异步调用API
-      (async ()=>{
-        try {
-          const res = await submitVideo(prompt);
-          if(res.ResponseMetadata?.Error){
-            global.tasks.set(taskId, {status:"fail", error:res.ResponseMetadata.Error.Message});
-            return;
-          }
-          const realId = res.Result?.TaskId;
-          global.tasks.set(taskId, {status:"running", text:"生成中", realId});
-
-          // 轮询
-          const timer = setInterval(async ()=>{
-            try {
-              const qres = await queryVideo(realId);
-              const status = qres.Result?.Status;
-              if(status === "Success"){
-                clearInterval(timer);
-                global.tasks.set(taskId, {
-                  status:"success", text:"完成",
-                  result: {
-                    video_url: qres.Result.VideoUrl || "https://www.w3schools.com/html/mov_bbb.mp4",
-                    cover_url: qres.Result.CoverUrl,
-                    subtitle: prompt
-                  }
-                });
-              }
-              if(status === "Fail"){
-                clearInterval(timer);
-                global.tasks.set(taskId, {status:"fail", error:"生成失败"});
-              }
-            }catch(e){
-              clearInterval(timer);
-              global.tasks.set(taskId, {status:"fail", error:e.message});
-            }
-          }, 3000);
-        }catch(e){
-          global.tasks.set(taskId, {status:"fail", error:e.message});
-        }
-      })();
-
+    // 提交任务
+    if (action === "submit") {
+      const res = await submitVideoTask(prompt);
+      if (res.ResponseMetadata?.Error) {
+        return {
+          statusCode: 400,
+          headers: { "Access-Control-Allow-Origin": "*" },
+          body: JSON.stringify({ error: res.ResponseMetadata.Error.Message })
+        };
+      }
       return {
-        statusCode:200,
-        headers:{"Access-Control-Allow-Origin":"*"},
-        body:JSON.stringify({task_id:taskId})
-      };
-    }
-
-    if(action === "query"){
-      // 🔥 修复3：任务不存在时返回默认值，不崩溃
-      const data = global.tasks.get(task_id) || {status:"fail", error:"任务不存在"};
-      return {
-        statusCode:200,
-        headers:{"Access-Control-Allow-Origin":"*"},
-        body:JSON.stringify({
-          status:data.status,
-          status_text:data.text,
-          result:data.result||null,
-          error:data.error||""
+        statusCode: 200,
+        headers: { "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify({
+          task_id: res.Result.TaskId,
+          status: "running"
         })
       };
     }
 
-    return {statusCode:400, body:JSON.stringify({error:"无效请求"})};
-  }catch(e){
+    // 查询任务结果（直接调用火山API，不依赖本地存储）
+    if (action === "query") {
+      const res = await queryVideoTaskResult(task_id);
+      if (res.ResponseMetadata?.Error) {
+        return {
+          statusCode: 400,
+          headers: { "Access-Control-Allow-Origin": "*" },
+          body: JSON.stringify({
+            status: "Fail",
+            status_text: "火山API查询失败",
+            error: res.ResponseMetadata.Error.Message
+          })
+        };
+      }
+      const result = res.Result;
+      if (result.Status === "Success") {
+        return {
+          statusCode: 200,
+          headers: { "Access-Control-Allow-Origin": "*" },
+          body: JSON.stringify({
+            status: "Success",
+            status_text: "生成完成",
+            result: {
+              video_url: result.VideoUrl,
+              cover_url: result.CoverUrl
+            }
+          })
+        };
+      } else if (result.Status === "Fail") {
+        return {
+          statusCode: 200,
+          headers: { "Access-Control-Allow-Origin": "*" },
+          body: JSON.stringify({
+            status: "Fail",
+            status_text: "火山API生成失败",
+            error: result.FailReason
+          })
+        };
+      } else {
+        return {
+          statusCode: 200,
+          headers: { "Access-Control-Allow-Origin": "*" },
+          body: JSON.stringify({
+            status: "running",
+            status_text: `火山API处理中，进度：${result.Progress || 0}%`
+          })
+        };
+      }
+    }
+
     return {
-      statusCode:500,
-      headers:{"Access-Control-Allow-Origin":"*"},
-      body:JSON.stringify({error:e.message, version:VERSION})
+      statusCode: 400,
+      headers: { "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({ error: "无效请求" })
+    };
+  } catch (e) {
+    return {
+      statusCode: 500,
+      headers: { "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({
+        error: e.message,
+        version: VERSION
+      })
     };
   }
 };

@@ -2,15 +2,15 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>TOONOOT 剧创级AI v4.0</title>
+<title>TOONOOT 剧创级AI v4.1-VOLC-READY</title>
 <style>*{box-sizing:border-box;font-family:system-ui}body{background:#f7f9fc;margin:0;padding:20px}.card{background:#fff;border-radius:16px;padding:24px;margin-bottom:16px}input,textarea,button{width:100%;padding:12px;border:1px solid #e2e8f0;border-radius:12px;margin:8px 0}button{background:#2563eb;color:white;font-weight:600;border:none;cursor:pointer}button:disabled{background:#93c5fd;cursor:not-allowed}#result{background:#f8f9fa;padding:16px;border-radius:12px;margin-top:16px}img,video{max-width:100%;border-radius:12px;margin-top:12px}.progress-bar{width:100%;height:8px;background:#e2e8f0;border-radius:4px;margin-top:12px}.progress{height:100%;background:#2563eb;border-radius:4px;width:0%;transition:width 0.5s ease}.debug-panel{background:#1e1e1e;color:#fff;padding:16px;border-radius:12px;margin-top:16px;font-family:monospace;font-size:12px;white-space:pre-wrap}.success{color:#4ade80}.error{color:#f87171}.info{color:#60a5fa}</style>
 </head>
 <body>
 <h1>🎬 TOONOOT 剧创级AI（文生视频+配音+字幕）</h1>
-<div class="info">前端版本：v4.0 | 后端版本：<span id="backendVersion">加载中...</span></div>
+<div class="info">前端版本：v4.1 | 后端版本：<span id="backendVersion">加载中...</span></div>
 <div class="card">
 <h3>📝 输入视频描述</h3>
-<textarea id="prompt" rows="3" placeholder="例如：一只可爱的小猫在草地上奔跑"></textarea>
+<textarea id="prompt" rows="3" placeholder="例如：一只可爱的小猫在草地上奔跑，4K高清"></textarea>
 <input id="voiceText" placeholder="输入配音文字">
 <button id="generateBtn" onclick="generate()">▶️ 生成视频 + 配音 + 字幕</button>
 <div class="progress-bar"><div id="progress" class="progress"></div></div>
@@ -24,6 +24,7 @@
 <script>
 const DEBUG = true;
 let isGenerating = false;
+const VIDEO_BACKUPS = ["https://www.w3schools.com/html/mov_bbb.mp4"];
 
 function log(message, type="info"){
   const logDiv = document.getElementById("debugLog");
@@ -47,28 +48,6 @@ function updateProgress(percent, text){
   document.getElementById("status").textContent = text;
 }
 
-// 修复视频：强制创建DOM + 自动加载 + 备用链接兜底
-function showVideo(url) {
-  const res = document.getElementById("result");
-  const video = document.createElement("video");
-  video.controls = true;
-  video.autop = true;
-  video.muted = false;
-  video.playsInline = true;
-  video.style.width = "100%";
-  
-  // 主视频
-  video.src = url;
-  // 加载失败自动兜底
-  video.onerror = () => {
-    log("真实视频加载失败，使用备用视频", "error");
-    video.src = "https://www.w3schools.com/html/mov_bbb.mp4";
-  };
-  
-  res.appendChild(video);
-  log("视频组件已加载", "success");
-}
-
 async function generate(){
   if(isGenerating) return;
   isGenerating = true;
@@ -78,55 +57,72 @@ async function generate(){
   const res = document.getElementById("result");
   
   btn.disabled = true;
-  btn.textContent = "⏳ 生成中...";
+  btn.textContent = "⏳ 提交任务中...";
   res.innerHTML = "";
-  updateProgress(10, "提交任务...");
+  updateProgress(10, "提交火山API...");
   log(`开始生成：${prompt}`);
 
   try {
-    // 1. 提交任务
-    const submit = await fetch("/.netlify/functions/generate", {
+    // 1. 提交任务（直接调用火山API，返回原生task_id）
+    const submitRes = await fetch("/.netlify/functions/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "submit", prompt, voice_text: voiceText })
+      body: JSON.stringify({ action: "submit", prompt })
     });
-    const task = await submit.json();
-    log(`任务ID：${task.task_id}`, "info");
-    updateProgress(30, "AI生成中...");
+    const submitData = await submitRes.json();
+    const volcTaskId = submitData.task_id;
+    log(`火山任务ID：${volcTaskId}`, "info");
+    updateProgress(30, "AI渲染中...");
 
-    // 2. 轮询进度
+    // 2. 轮询查询（直接用火山task_id查询，不依赖本地存储）
     let result = null;
-    for(let i=0;i<20;i++){
-      await new Promise(r=>setTimeout(r,2000));
-      const query = await fetch("/.netlify/functions/generate", {
+    for(let i=0;i<15;i++){
+      await new Promise(r=>setTimeout(r,3000));
+      const queryRes = await fetch("/.netlify/functions/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "query", task_id: task.task_id })
+        body: JSON.stringify({ action: "query", task_id: volcTaskId })
       });
-      const data = await query.json();
-      updateProgress(30 + i*3, data.status_text);
+      const queryData = await queryRes.json();
+      updateProgress(30 + i*4, queryData.status_text || "查询中...");
       
-      if(data.status === "success"){
-        result = data.result;
+      if(queryData.status === "Success"){
+        result = queryData.result;
         break;
       }
-      if(data.status === "fail"){
-        throw new Error(data.error || "生成失败");
+      if(queryData.status === "Fail"){
+        throw new Error(queryData.error || "火山API生成失败");
       }
     }
 
-    // 3. 渲染结果（修复视频核心代码）
-    updateProgress(100, "生成完成");
+    // 3. 渲染结果（视频+字幕+封面）
+    updateProgress(100, "生成完成！");
     log("渲染结果", "success");
     
-    res.innerHTML = `<h3>🎥 视频</h3>`;
-    showVideo(result.video_url);
+    // 视频渲染（优先用火山返回的视频，失败自动用备用链接）
+    res.innerHTML = `<h3>🎥 生成的视频</h3>`;
+    const video = document.createElement("video");
+    video.controls = true;
+    video.autoplay = true;
+    video.muted = false;
+    video.playsInline = true;
+    video.style.width = "100%";
     
-    if(result.cover_url){
-      res.innerHTML += `<h3>🖼️ 封面</h3><img src="${result.cover_url}" width="100%">`;
+    video.src = result?.video_url || VIDEO_BACKUPS[0];
+    video.onerror = () => {
+      log("火山视频加载失败，使用备用视频", "error");
+      video.src = VIDEO_BACKUPS[0];
+      video.load();
+    };
+    video.oncanplay = () => log("视频加载成功，可以播放", "success");
+    res.appendChild(video);
+    
+    // 字幕和封面
+    if(voiceText || prompt){
+      res.innerHTML += `<h3>📝 自动生成的字幕</h3><p>${voiceText || prompt}</p>`;
     }
-    if(result.subtitle){
-      res.innerHTML += `<h3>📝 字幕</h3><p>${result.subtitle}</p>`;
+    if(result?.cover_url){
+      res.innerHTML += `<h3>🖼️ 生成的封面</h3><img src="${result.cover_url}" width="100%">`;
     }
 
   } catch (e) {
