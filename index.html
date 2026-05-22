@@ -1,32 +1,44 @@
 ﻿<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TOONOOT AI创意平台</title>
-  <style>
-    *{box-sizing:border-box;font-family:system-ui}
-    body{max-width:700px;margin:30px auto;padding:20px;background:#f4f6f8}
-    .panel{background:#fff;padding:20px;border-radius:16px;margin-bottom:16px;box-shadow:0 2px 8px #0001}
-    input,select,button{width:100%;padding:12px;margin:8px 0;border:1px solid #ddd;border-radius:10px}
-    button{background:#0066ff;color:white;border:none;cursor:pointer}
-    #result{margin-top:20px}
-    #result img,#result video{max-width:100%;border-radius:12px}
-  </style>
-</head>
-<body>
-  <h1>🎨 TOONOOT AI 创意平台</h1>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>TOONOOT AI · 剧创级平台</title>
+<style>
+*{box-sizing:border-box;font-family:system-ui}
+body{margin:0;background:#f6f7f9}
+.container{max-width:1000px;margin:30px auto;padding:20px}
+.card{background:#fff;border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:0 2px 10px #0000000a}
+h1{color:#1e293b}
+input,select,textarea,button{width:100%;padding:12px 14px;border:1px solid #e2e8f0;border-radius:12px;margin:8px 0}
+button{background:#2563eb;color:white;border:none;font-weight:600;cursor:pointer}
+button:hover{background:#1d4ed8}
+#result{white-space:pre-wrap;background:#f8fafc;padding:14px;border-radius:12px;margin-top:12px}
+.item{background:#fff;padding:14px;border-radius:12px;margin:8px 0}
+img,video{max-width:100%;border-radius:12px;margin-top:10px}
+.tabs{display:flex;gap:8px;margin-bottom:12px}
+.tab{padding:10px 14px;background:#e2e8f0;border-radius:10px;cursor:pointer}
+.tab.active{background:#2563eb;color:white}
+</style>
 
-  <div class="panel">
-    <h3>🖌️ AI 文生图</h3>
-    <input id="prompt" placeholder="输入画面描述：可爱猫咪、古风风景、科幻场景">
+<div class="container">
+  <h1>🎬 TOONOOT AI 创意平台（剧创级）</h1>
+
+  <div class="tabs">
+    <div class="tab active" onclick="tab('img')">🖌️ 文生图</div>
+    <div class="tab" onclick="tab('video')">🎬 特效视频</div>
+    <div class="tab" onclick="tab('avatar')">🎤 数字人说话</div>
+    <div class="tab" onclick="tab('history')">📜 历史记录</div>
+  </div>
+
+  <div id="panel_img" class="panel card">
+    <h3>AI 文生图</h3>
+    <input id="p_img" placeholder="输入画面描述，例如：古风风景、可爱猫咪">
     <button onclick="genImage()">生成图片</button>
   </div>
 
-  <div class="panel">
-    <h3>🎬 图片 → AI特效视频</h3>
-    <input type="file" id="imgFile" accept="image/*">
-    <select id="template">
+  <div id="panel_video" class="panel card" style="display:none">
+    <h3>图片 → 特效视频</h3>
+    <input type="file" id="f_video" accept="image/*">
+    <select id="t_video">
       <option value="Santa_Claus_embrace_720p">🎅 圣诞老人拥抱</option>
       <option value="mech_transformation_720p">🤖 机甲变身</option>
       <option value="Christmas_dance_720p">💃 圣诞舞蹈</option>
@@ -35,49 +47,94 @@
     <button onclick="genVideo()">生成视频</button>
   </div>
 
+  <div id="panel_avatar" class="panel card" style="display:none">
+    <h3>单图 → 数字人说话</h3>
+    <input type="file" id="f_avatar" accept="image/*">
+    <input type="text" id="txt_avatar" placeholder="输入文字，自动生成语音">
+    <button onclick="genAvatar()">生成数字人视频</button>
+  </div>
+
+  <div id="panel_history" class="panel card" style="display:none">
+    <h3>历史作品</h3>
+    <div id="history_list"></div>
+  </div>
+
   <div id="result"></div>
+</div>
 
-  <script>
-    const API = "/.netlify/functions/generate";
+<script>
+const API = "/.netlify/functions/generate";
+let currentTab = "img";
 
-    async function genImage() {
-      result.innerHTML = "生成中...";
-      const res = await fetch(API, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "text2image", prompt: prompt.value })
-      });
-      show(await res.json());
-    }
+function tab(t) {
+  currentTab = t;
+  document.querySelectorAll(".panel").forEach(p=>p.style.display="none");
+  document.querySelectorAll(".tab").forEach(p=>p.classList.remove("active"));
+  document.getElementById("panel_"+t).style.display="block";
+  event.target.classList.add("active");
+  if(t==="history")loadHistory();
+}
 
-    async function genVideo() {
-      const file = imgFile.files[0];
-      if (!file) return alert("请选择图片");
-      result.innerHTML = "生成视频中...";
-      
-      // 直接用 FileReader 转成 base64，避免第三方上传接口
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = async function() {
-        const base64 = reader.result;
-        const res = await fetch(API, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            type: "video", 
-            imgBase64: base64, 
-            templateId: template.value 
-          })
-        });
-        show(await res.json());
-      };
-    }
+async function genImage(){
+  result.innerHTML="生成中...";
+  const r=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:"text2image",prompt:document.getElementById("p_img").value})});
+  const d=await r.json();
+  showResult(d);
+  saveHistory("image",d);
+}
 
-    function show(data) {
-      result.innerHTML = "<pre>" + JSON.stringify(data, null, 2) + "</pre>";
-      if (data.data?.images?.[0]?.image_url) result.innerHTML += `<img src="${data.data.images[0].image_url}">`;
-      if (data.data?.video_url) result.innerHTML += `<video src="${data.data.video_url}" controls></video>`;
-    }
-  </script>
-</body>
-</html>
+async function genVideo(){
+  const f=document.getElementById("f_video").files[0];
+  if(!f){alert("请选择图片");return}
+  result.innerHTML="上传并生成视频中...";
+  let u=await upload(f);
+  const r=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:"video",imgUrl:u,templateId:document.getElementById("t_video").value})});
+  const d=await r.json();
+  showResult(d);
+  saveHistory("video",d);
+}
+
+async function genAvatar(){
+  const f=document.getElementById("f_avatar").files[0];
+  const txt=document.getElementById("txt_avatar").value;
+  if(!f||!txt){alert("请上传图片并输入文字");return}
+  result.innerHTML="生成数字人视频中...";
+  let u=await upload(f);
+  const r=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:"avatar",imgUrl:u,text:txt})});
+  const d=await r.json();
+  showResult(d);
+  saveHistory("avatar",d);
+}
+
+async function upload(file){
+  const fd=new FormData();fd.append("image",file);
+  const res=await fetch("https://api.imgbb.com/1/upload?key=216a295a464130c90d6c14f3a4cc4f0b",{method:"POST",body:fd});
+  const j=await res.json();
+  return j.data.url;
+}
+
+function showResult(d){
+  result.innerHTML=JSON.stringify(d,null,2);
+  if(d.data?.images?.[0]?.image_url)result.innerHTML+="<img src='"+d.data.images[0].image_url+"'>";
+  if(d.data?.video_url)result.innerHTML+="<video src='"+d.data.video_url+"' controls>";
+}
+
+function saveHistory(typ,data){
+  let h=JSON.parse(localStorage.getItem("history")||"[]");
+  h.unshift({time:new Date().toLocaleString(),type:typ,data:data});
+  if(h.length>50)h=h.slice(0,50);
+  localStorage.setItem("history",JSON.stringify(h));
+}
+
+function loadHistory(){
+  const list=document.getElementById("history_list");
+  list.innerHTML="";
+  let h=JSON.parse(localStorage.getItem("history")||"[]");
+  h.forEach((it,idx)=>{
+    let div=document.createElement("div");
+    div.className="item";
+    div.innerHTML=`<b>${it.type} · ${it.time}</b><pre>${JSON.stringify(it.data,null,2)}</pre>`;
+    list.appendChild(div);
+  })
+}
+</script>
