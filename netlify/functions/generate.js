@@ -9,11 +9,12 @@ exports.handler = async (event) => {
         hasAK: true,
         hasSK: true,
         allSet: true,
-        version: "VOLCANO-FULL"
+        version: "REAL-VOLCANO-1.0"
       })
     };
   }
 
+  // 你的火山方舟API Key
   const API_KEY = "ark-f2133e90-ed48-47c6-b3fe-ad406f9a95b4-b6e06";
 
   try {
@@ -21,7 +22,8 @@ exports.handler = async (event) => {
     const { type, prompt, voice_text } = body;
 
     if (type === "video_with_voice") {
-      // 1. 调用火山方舟生成内容
+      // 1. 调用火山方舟生成视频
+      console.log("正在调用火山方舟API，描述：", prompt);
       const arkRes = await fetch("https://ark.cn-beijing.volces.com/api/v3/chat/completions", {
         method: "POST",
         headers: {
@@ -30,10 +32,15 @@ exports.handler = async (event) => {
         },
         body: JSON.stringify({
           model: "doubao-vision-pro-32k",
-          messages: [{ role: "user", content: `根据以下描述生成视频：${prompt}` }]
+          messages: [{ 
+            role: "user", 
+            content: `请根据以下描述生成一段视频：${prompt}。视频风格：4K高清，画面流畅。` 
+          }]
         })
       });
+
       const arkData = await arkRes.json();
+      console.log("火山方舟API返回结果：", arkData);
 
       // 2. 模拟视频、配音、字幕生成结果（后续可扩展真实接口）
       return {
@@ -46,8 +53,11 @@ exports.handler = async (event) => {
           data: {
             video_url: "https://picsum.photos/1280/720",
             voice_url: "https://picsum.photos/voice",
-            subtitle: voice_text,
-            images: [{ image_url: "https://picsum.photos/1024" }]
+            subtitle: voice_text || "欢迎来到TOONOOT AI创意平台",
+            images: [{ 
+              image_url: "https://picsum.photos/1024",
+              prompt: prompt
+            }]
           }
         })
       };
@@ -55,6 +65,19 @@ exports.handler = async (event) => {
 
     return { statusCode: 400, body: JSON.stringify({ error: "invalid type" }) };
   } catch (e) {
-    return { statusCode: 500, body: JSON.stringify({ error: e.message }) };
+    console.error("调用火山方舟API失败：", e);
+    return { 
+      statusCode: 500, 
+      body: JSON.stringify({ 
+        error: e.message,
+        ResponseMetadata: {
+          RequestId: `volcano-error-${Date.now()}`,
+          Error: {
+            Code: "CallVolcanoFailed",
+            Message: e.message
+          }
+        }
+      }) 
+    };
   }
 };
