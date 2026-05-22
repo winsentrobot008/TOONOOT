@@ -1,65 +1,83 @@
 ﻿<!DOCTYPE html>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TOONOOT AI</title>
-<style>
-*{box-sizing:border-box;font-family:Arial}
-body{max-width:700px;margin:30px auto;padding:20px;background:#f4f6f8}
-.panel{background:#fff;padding:20px;border-radius:16px;margin-bottom:16px;box-shadow:0 2px 8px #0001}
-input,select,button{width:100%;padding:12px;margin:8px 0;border:1px solid #ddd;border-radius:10px}
-button{background:#0066ff;color:white;border:none;cursor:pointer}
-#result{margin-top:20px}
-#result img,#result video{max-width:100%;border-radius:12px}
-</style>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TOONOOT AI创意平台</title>
+  <style>
+    *{box-sizing:border-box;font-family:system-ui}
+    body{max-width:700px;margin:30px auto;padding:20px;background:#f4f6f8}
+    .panel{background:#fff;padding:20px;border-radius:16px;margin-bottom:16px;box-shadow:0 2px 8px #0001}
+    input,select,button{width:100%;padding:12px;margin:8px 0;border:1px solid #ddd;border-radius:10px}
+    button{background:#0066ff;color:white;border:none;cursor:pointer}
+    #result{margin-top:20px}
+    #result img,#result video{max-width:100%;border-radius:12px}
+  </style>
+</head>
+<body>
+  <h1>🎨 TOONOOT AI 创意平台</h1>
 
-<h1>🎨 TOONOOT AI 创意平台</h1>
+  <div class="panel">
+    <h3>🖌️ AI 文生图</h3>
+    <input id="prompt" placeholder="输入画面描述：可爱猫咪、古风风景、科幻场景">
+    <button onclick="genImage()">生成图片</button>
+  </div>
 
-<div class="panel">
-  <h3>🖌️ AI 文生图</h3>
-  <input id="txt" placeholder="输入画面描述：可爱猫咪、风景、插画">
-  <button onclick="goImg()">生成图片</button>
-</div>
+  <div class="panel">
+    <h3>🎬 图片 → AI特效视频</h3>
+    <input type="file" id="imgFile" accept="image/*">
+    <select id="template">
+      <option value="Santa_Claus_embrace_720p">🎅 圣诞老人拥抱</option>
+      <option value="mech_transformation_720p">🤖 机甲变身</option>
+      <option value="Christmas_dance_720p">💃 圣诞舞蹈</option>
+      <option value="everything_grows_wings_720p">🦋 万物生翅膀</option>
+    </select>
+    <button onclick="genVideo()">生成视频</button>
+  </div>
 
-<div class="panel">
-  <h3>🎬 图片 → 特效视频</h3>
-  <input type="file" id="img" accept="image/*">
-  <select id="tmp">
-    <option value="Santa_Claus_embrace_720p">🎅 圣诞老人拥抱</option>
-    <option value="mech_transformation_720p">🤖 机甲变身</option>
-    <option value="Christmas_dance_720p">💃 圣诞舞蹈</option>
-  </select>
-  <button onclick="goVideo()">生成视频</button>
-</div>
+  <div id="result"></div>
 
-<div id="result"></div>
+  <script>
+    const API = "/.netlify/functions/generate";
 
-<script>
-async function goImg(){
-  result.innerHTML='生成中...';
-  const r=await fetch('/.netlify/functions/generate',{
-    method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({type:'text2image',prompt:txt.value})
-  });
-  show(await r.json());
-}
+    async function genImage() {
+      result.innerHTML = "生成中...";
+      const res = await fetch(API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "text2image", prompt: prompt.value })
+      });
+      show(await res.json());
+    }
 
-async function goVideo(){
-  const f=img.files[0];if(!f)return alert('请选择图片');
-  result.innerHTML='上传中...';
-  let fd=new FormData();fd.append('image',f);
-  let up=await fetch('https://api.imgbb.com/1/upload?key=216a295a464130c90d6c14f3a4cc4f0b',{method:'POST',body:fd});
-  let u=await up.json();
-  result.innerHTML='视频生成中...';
-  const r=await fetch('/.netlify/functions/generate',{
-    method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({type:'video',imgUrl:u.data.url,templateId:tmp.value})
-  });
-  show(await r.json());
-}
+    async function genVideo() {
+      const file = imgFile.files[0];
+      if (!file) return alert("请选择图片");
+      result.innerHTML = "生成视频中...";
+      
+      // 直接用 FileReader 转成 base64，避免第三方上传接口
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = async function() {
+        const base64 = reader.result;
+        const res = await fetch(API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            type: "video", 
+            imgBase64: base64, 
+            templateId: template.value 
+          })
+        });
+        show(await res.json());
+      };
+    }
 
-function show(d){
-  result.innerHTML=JSON.stringify(d,null,2);
-  if(d.data?.images?.[0]?.image_url)result.innerHTML+='<img src="'+d.data.images[0].image_url+'">';
-  if(d.data?.video_url)result.innerHTML+='<video src="'+d.data.video_url+'" controls>';
-}
-</script>
+    function show(data) {
+      result.innerHTML = "<pre>" + JSON.stringify(data, null, 2) + "</pre>";
+      if (data.data?.images?.[0]?.image_url) result.innerHTML += `<img src="${data.data.images[0].image_url}">`;
+      if (data.data?.video_url) result.innerHTML += `<video src="${data.data.video_url}" controls></video>`;
+    }
+  </script>
+</body>
+</html>
