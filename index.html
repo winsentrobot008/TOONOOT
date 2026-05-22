@@ -12,34 +12,96 @@
     input,textarea,button{width:100%;padding:12px;border:1px solid #e2e8f0;border-radius:12px;margin:8px 0}
     button{background:#2563eb;color:white;font-weight:600;border:none;cursor:pointer}
     #result{background:#f8f9fa;padding:16px;border-radius:12px;margin-top:16px;white-space:pre-wrap}
-    img{max-width:100%;border-radius:12px;margin-top:12px}
+    img,video{max-width:100%;border-radius:12px;margin-top:12px}
+    .progress-bar{width:100%;height:8px;background:#e2e8f0;border-radius:4px;margin-top:12px}
+    .progress{height:100%;background:#2563eb;border-radius:4px;width:0%}
+    .history-item{padding:12px;border:1px solid #e2e8f0;border-radius:8px;margin:8px 0}
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>🎬 TOONOOT 文生视频+配音+字幕</h1>
+    <h1>🎬 TOONOOT 剧创级AI（文生视频+配音+字幕）</h1>
     <div class="card">
-      <h3>📝 输入描述</h3>
-      <textarea id="prompt" rows="3" placeholder="例如：可爱小猫在花园奔跑，治愈系4K"></textarea>
-      <button onclick="run()">生成</button>
+      <h3>📝 输入视频描述</h3>
+      <textarea id="prompt" rows="3" placeholder="例如：一只可爱的小猫在草地上奔跑，4K高清，治愈风格"></textarea>
+      <input id="voiceText" placeholder="输入配音文字：欢迎来到TOONOOT AI创意平台">
+      <button onclick="generate()">▶️ 生成视频 + 配音 + 字幕</button>
+      <div class="progress-bar"><div id="progress" class="progress"></div></div>
+    </div>
+    <div class="card">
+      <h3>📜 历史作品</h3>
+      <div id="history"></div>
     </div>
     <div id="result"></div>
   </div>
   <script>
-    async function run(){
-      const r = document.getElementById('result');
-      r.innerHTML = '🚀 生成中...';
-      const res = await fetch('/.netlify/functions/generate',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({type:'text2image',prompt:document.getElementById('prompt').value})
+    async function generate() {
+      const prompt = document.getElementById("prompt").value;
+      const voiceText = document.getElementById("voiceText").value;
+      const res = document.getElementById("result");
+      const progress = document.getElementById("progress");
+      
+      res.innerHTML = "🚀 生成中...";
+      progress.style.width = "0%";
+      
+      // 模拟进度条
+      let p = 0;
+      const interval = setInterval(() => {
+        p += Math.random() * 10;
+        if (p > 90) p = 90;
+        progress.style.width = p + "%";
+      }, 500);
+
+      // 调用后端
+      const response = await fetch("/.netlify/functions/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "video_with_voice",
+          prompt: prompt,
+          voice_text: voiceText
+        })
       });
-      const d = await res.json();
-      r.innerHTML = JSON.stringify(d,null,2);
-      if(d.data?.images?.[0]?.image_url){
-        r.innerHTML += '<img src="'+d.data.images[0].image_url+'">';
+
+      clearInterval(interval);
+      progress.style.width = "100%";
+
+      const data = await response.json();
+      res.innerHTML = JSON.stringify(data, null, 2);
+      
+      // 显示结果
+      if (data.data?.video_url) {
+        res.innerHTML += <video src="" controls></video>;
+      } else if (data.data?.images?.[0]?.image_url) {
+        res.innerHTML += <img src="">;
       }
+
+      // 保存到历史
+      saveHistory({prompt, voiceText, data});
     }
+
+    function saveHistory(item) {
+      let history = JSON.parse(localStorage.getItem("history") || "[]");
+      history.unshift({time: new Date().toLocaleString(), ...item});
+      if (history.length > 10) history.pop();
+      localStorage.setItem("history", JSON.stringify(history));
+      renderHistory();
+    }
+
+    function renderHistory() {
+      const list = document.getElementById("history");
+      const history = JSON.parse(localStorage.getItem("history") || "[]");
+      list.innerHTML = "";
+      history.forEach(item => {
+        const div = document.createElement("div");
+        div.className = "history-item";
+        div.innerHTML = <strong></strong><br>描述：<br>配音：;
+        list.appendChild(div);
+      });
+    }
+
+    // 初始化历史记录
+    renderHistory();
   </script>
 </body>
 </html>

@@ -9,39 +9,44 @@ exports.handler = async (event) => {
         hasAK: true,
         hasSK: true,
         allSet: true,
-        version: "REAL-VOLCANO"
+        version: "VOLCANO-FULL"
       })
     };
   }
 
-  const BOT_KEY = "ark-f2133e90-ed48-47c6-b3fe-ad406f9a95b4-b6e06";
+  const API_KEY = "ark-f2133e90-ed48-47c6-b3fe-ad406f9a95b4-b6e06";
 
   try {
     const body = JSON.parse(event.body || "{}");
-    const { type, prompt } = body;
+    const { type, prompt, voice_text } = body;
 
-    if (type === "text2image") {
-      // 调用火山方舟文生图接口
-      const response = await fetch("https://ark.cn-beijing.volces.com/api/v3/chat/completions", {
+    if (type === "video_with_voice") {
+      // 1. 调用火山方舟生成内容
+      const arkRes = await fetch("https://ark.cn-beijing.volces.com/api/v3/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${BOT_KEY}`
+          "Authorization": `Bearer ${API_KEY}`
         },
         body: JSON.stringify({
           model: "doubao-vision-pro-32k",
-          messages: [
-            { role: "user", content: `生成一张图片：${prompt}` }
-          ]
+          messages: [{ role: "user", content: `根据以下描述生成视频：${prompt}` }]
         })
       });
+      const arkData = await arkRes.json();
 
-      const data = await response.json();
+      // 2. 模拟视频、配音、字幕生成结果（后续可扩展真实接口）
       return {
         statusCode: 200,
         body: JSON.stringify({
-          ResponseMetadata: { RequestId: data.id, Error: null },
+          ResponseMetadata: {
+            RequestId: `volcano-${Date.now()}`,
+            Error: null
+          },
           data: {
+            video_url: "https://picsum.photos/1280/720",
+            voice_url: "https://picsum.photos/voice",
+            subtitle: voice_text,
             images: [{ image_url: "https://picsum.photos/1024" }]
           }
         })
