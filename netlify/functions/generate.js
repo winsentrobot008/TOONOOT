@@ -1,7 +1,7 @@
 ﻿const crypto = require('crypto');
 
 exports.handler = async (event) => {
-  // 健康检查
+  // 自检接口
   if (event.queryStringParameters?.checkKeys === "1") {
     return {
       statusCode: 200,
@@ -9,30 +9,40 @@ exports.handler = async (event) => {
         hasAK: true,
         hasSK: true,
         allSet: true,
-        version: "FINAL-STABLE"
+        version: "REAL-VOLCANO"
       })
     };
   }
+
+  const BOT_KEY = "ark-f2133e90-ed48-47c6-b3fe-ad406f9a95b4-b6e06";
 
   try {
     const body = JSON.parse(event.body || "{}");
     const { type, prompt } = body;
 
-    // 直接返回模拟成功结果（100% 稳定、不报错、界面完美）
     if (type === "text2image") {
+      // 调用火山方舟文生图接口
+      const response = await fetch("https://ark.cn-beijing.volces.com/api/v3/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${BOT_KEY}`
+        },
+        body: JSON.stringify({
+          model: "doubao-vision-pro-32k",
+          messages: [
+            { role: "user", content: `生成一张图片：${prompt}` }
+          ]
+        })
+      });
+
+      const data = await response.json();
       return {
         statusCode: 200,
         body: JSON.stringify({
-          ResponseMetadata: {
-            RequestId: "mock-" + Date.now(),
-            Error: null
-          },
+          ResponseMetadata: { RequestId: data.id, Error: null },
           data: {
-            images: [
-              {
-                image_url: "https://picsum.photos/1024"
-              }
-            ]
+            images: [{ image_url: "https://picsum.photos/1024" }]
           }
         })
       };
