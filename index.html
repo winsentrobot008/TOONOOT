@@ -1,84 +1,65 @@
 ﻿<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TOONOOT - AI Video Generator</title>
-  <style>
-    *{margin:0;padding:0;box-sizing:border-box;font-family:system-ui}
-    :root{--primary:#165DFF;--bg:#0F172A;--card:#1E293B;--text:#F8FAFC;--sub:#94A3B8;--ok:#10B981;--run:#F59E0B}
-    body{background:var(--bg);color:var(--text);padding:24px}
-    .wrap{max-width:900px;margin:0 auto}
-    .head{display:flex;justify-content:space-between;align-items:center;margin-bottom:25px}
-    .lang-box select{background:var(--card);color:var(--text);border:none;padding:6px 10px;border-radius:8px}
-    .panel{background:var(--card);border-radius:16px;padding:26px;margin-bottom:20px}
-    h1{font-size:26px;margin-bottom:8px}
-    .tip{color:var(--sub);margin-bottom:20px}
-    textarea{width:100%;height:130px;background:var(--bg);border:1px solid #334155;border-radius:12px;padding:15px;color:var(--text);font-size:15px;resize:none;margin-bottom:15px}
-    .btn{width:100%;padding:15px;background:var(--primary);color:#fff;border:none;border-radius:12px;font-size:16px;cursor:pointer}
-    .btn:disabled{opacity:0.5}
-    .progress-bar{width:100%;height:8px;background:#334155;border-radius:4px;margin:16px 0}
-    .progress-fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--ok));width:0%;transition:width 0.3s}
-    .status{padding:14px;border-radius:10px;background:var(--bg);margin-top:18px;display:none}
-    video{width:100%;border-radius:12px;margin-top:20px;display:none}
-    .step-item{display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--bg);border-radius:10px;margin-bottom:9px}
-    .step-num{width:28px;height:28px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;margin-right:12px}
-    .step-item.curr .step-num{background:var(--run)}
-    .step-item.fin .step-num{background:var(--ok)}
-    .view-btn{padding:4px 10px;background:#6366F1;border:none;border-radius:6px;color:#fff;font-size:12px;display:none}
-    .step-item.fin .view-btn{display:block}
-    .step-result{margin-top:10px;padding:12px;background:var(--bg);border-radius:8px;display:none;font-size:13px;color:#ccc}
-    .version{text-align:center;font-size:12px;color:#666;margin-top:20px}
-  </style>
-</head>
-<body>
-<div class="wrap">
-  <div class="head">
-    <h2>TOONOOT</h2>
-    <div class="lang-box">
-      <select id="lang" onchange="setLang()">
-        <option value="zh">简体中文</option>
-        <option value="en">English</option>
-        <option value="sv">Svenska</option>
-      </select>
-    </div>
-  </div>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TOONOOT AI</title>
+<style>
+*{box-sizing:border-box;font-family:Arial}
+body{max-width:700px;margin:30px auto;padding:20px;background:#f4f6f8}
+.panel{background:#fff;padding:20px;border-radius:16px;margin-bottom:16px;box-shadow:0 2px 8px #0001}
+input,select,button{width:100%;padding:12px;margin:8px 0;border:1px solid #ddd;border-radius:10px}
+button{background:#0066ff;color:white;border:none;cursor:pointer}
+#result{margin-top:20px}
+#result img,#result video{max-width:100%;border-radius:12px}
+</style>
 
-  <div class="panel">
-    <h1 id="title">AI全自动视频生成</h1>
-    <p id="desc">输入文案，自动完成全流程创作</p>
-    <textarea id="text" placeholder="请输入创作文案"></textarea>
-    <button class="btn" onclick="start()">生成视频</button>
-    <div class="progress-bar"><div class="progress-fill" id="bar"></div></div>
-    <div id="status" class="status"></div>
-    <video id="video" controls></video>
-  </div>
+<h1>🎨 TOONOOT AI 创意平台</h1>
 
-  <div class="panel" id="steps" style="display:none">
-    <h3 id="proc">生成进度</h3>
-    <div class="step-item" id="p1"><div><div class="step-num">1</div>文案改写</div><button onclick="v(1)">查看</button></div><div id="r1" class="step-result"></div>
-    <div class="step-item" id="p2"><div><div class="step-num">2</div>剧本创作</div><button onclick="v(2)">查看</button></div><div id="r2" class="step-result"></div>
-    <div class="step-item" id="p3"><div><div class="step-num">3</div>分镜头</div><button onclick="v(3)">查看</button></div><div id="r3" class="step-result"></div>
-    <div class="step-item" id="p4"><div><div class="step-num">4</div>图片生成</div><button onclick="v(4)">查看</button></div><div id="r4" class="step-result"></div>
-    <div class="step-item" id="p5"><div><div class="step-num">5</div>视频合成</div><button onclick="v(5)">查看</button></div><div id="r5" class="step-result"></div>
-    <div class="step-item" id="p6"><div><div class="step-num">6</div>配音</div><button onclick="v(6)">查看</button></div><div id="r6" class="step-result"></div>
-    <div class="step-item" id="p7"><div><div class="step-num">7</div>字幕</div><button onclick="v(7)">查看</button></div><div id="r7" class="step-result"></div>
-    <div class="step-item" id="p8"><div><div class="step-num">8</div>成片导出</div><button onclick="v(8)">查看</button></div><div id="r8" class="step-result"></div>
-  </div>
-
-  <div class="version">前端版本: v2.1.0 | 安全架构 | GDPR 合规</div>
+<div class="panel">
+  <h3>🖌️ AI 文生图</h3>
+  <input id="txt" placeholder="输入画面描述：可爱猫咪、风景、插画">
+  <button onclick="goImg()">生成图片</button>
 </div>
 
+<div class="panel">
+  <h3>🎬 图片 → 特效视频</h3>
+  <input type="file" id="img" accept="image/*">
+  <select id="tmp">
+    <option value="Santa_Claus_embrace_720p">🎅 圣诞老人拥抱</option>
+    <option value="mech_transformation_720p">🤖 机甲变身</option>
+    <option value="Christmas_dance_720p">💃 圣诞舞蹈</option>
+  </select>
+  <button onclick="goVideo()">生成视频</button>
+</div>
+
+<div id="result"></div>
+
 <script>
-const L={zh:{title:"AI全自动视频生成",desc:"输入文案，自动完成全流程创作",proc:"生成进度"},en:{title:"AI Video Generator",desc:"Generate full video automatically",proc:"Progress"},sv:{title:"AI Videogenerator",desc:"Skapa video automatiskt",proc:"Förlopp"}};
-function setLang(){let a=document.getElementById("lang").value,t=L[a];document.getElementById("title").innerText=t.title,document.getElementById("desc").innerText=t.desc,document.getElementById("proc").innerText=t.proc}
-const st=async(i)=>{document.getElementById("p"+i).className="step-item curr",document.getElementById("bar").style.width=i/8*100+"%";await new Promise(n=>setTimeout(n,700));document.getElementById("p"+i).className="step-item fin",document.getElementById("r"+i).innerText="步骤 "+i+" 已完成"};
-const v=i=>{let a=document.getElementById("r"+i);a.style.display=a.style.display?"none":"block"};
-async function start(){let a=document.getElementById("text").value.trim();if(!a)return alert("请输入文案");document.querySelector(".btn").disabled=!0,document.getElementById("status").style.display="block",document.getElementById("status").innerText="处理中...",document.getElementById("steps").style.display="block";
-await st(1),await st(2),await st(3),await st(4),await st(5),await st(6),await st(7),await st(8);
-let e=await fetch("/.netlify/functions/generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:a})}),n=await e.json();
-document.getElementById("status").innerText=n.message + " | 后端版本: " + (n.version || "unknown");
-document.getElementById("video").src=n.videoUrl,document.getElementById("video").style.display="block",document.querySelector(".btn").disabled=!1}
+async function goImg(){
+  result.innerHTML='生成中...';
+  const r=await fetch('/.netlify/functions/generate',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({type:'text2image',prompt:txt.value})
+  });
+  show(await r.json());
+}
+
+async function goVideo(){
+  const f=img.files[0];if(!f)return alert('请选择图片');
+  result.innerHTML='上传中...';
+  let fd=new FormData();fd.append('image',f);
+  let up=await fetch('https://api.imgbb.com/1/upload?key=216a295a464130c90d6c14f3a4cc4f0b',{method:'POST',body:fd});
+  let u=await up.json();
+  result.innerHTML='视频生成中...';
+  const r=await fetch('/.netlify/functions/generate',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({type:'video',imgUrl:u.data.url,templateId:tmp.value})
+  });
+  show(await r.json());
+}
+
+function show(d){
+  result.innerHTML=JSON.stringify(d,null,2);
+  if(d.data?.images?.[0]?.image_url)result.innerHTML+='<img src="'+d.data.images[0].image_url+'">';
+  if(d.data?.video_url)result.innerHTML+='<video src="'+d.data.video_url+'" controls>';
+}
 </script>
-</body>
-</html>
