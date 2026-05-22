@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TOONOOT AI 视频生成（文生视频+配音+字幕）</title>
+  <title>TOONOOT 剧创级AI</title>
   <style>
     *{box-sizing:border-box;font-family:system-ui}
     body{background:#f7f9fc;margin:0}
@@ -12,39 +12,32 @@
     input,textarea,button{width:100%;padding:12px;border:1px solid #e2e8f0;border-radius:12px;margin:8px 0}
     button{background:#2563eb;color:white;font-weight:600;border:none;cursor:pointer}
     #result{background:#f8f9fa;padding:16px;border-radius:12px;margin-top:16px;white-space:pre-wrap}
-    video,img{max-width:100%;border-radius:12px;margin-top:12px}
+    img{max-width:100%;border-radius:12px;margin-top:12px}
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>🎬 TOONOOT AI 视频生成（文生视频+配音+字幕）</h1>
+    <h1>🎬 TOONOOT 文生视频+配音+字幕</h1>
     <div class="card">
-      <h3>📝 输入视频描述</h3>
-      <textarea id="prompt" rows="3" placeholder="例如：一只可爱的小猫在草地上奔跑，4K高清，治愈风格"></textarea>
-      <input id="voiceTxt" placeholder="输入配音文字：欢迎来到TOONOOT AI创意平台">
-      <button onclick="generate()">▶️ 生成视频 + 配音 + 字幕</button>
+      <h3>📝 输入描述</h3>
+      <textarea id="prompt" rows="3" placeholder="例如：可爱小猫在花园奔跑，治愈系4K"></textarea>
+      <button onclick="run()">生成</button>
     </div>
     <div id="result"></div>
   </div>
   <script>
-    async function generate() {
-      const prompt = document.getElementById("prompt").value;
-      const voiceTxt = document.getElementById("voiceTxt").value;
-      const res = document.getElementById("result");
-      res.innerHTML = "🚀 生成中...";
-      const response = await fetch("/.netlify/functions/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "text2image",
-          prompt: prompt,
-          voice_text: voiceTxt
-        })
+    async function run(){
+      const r = document.getElementById('result');
+      r.innerHTML = '🚀 生成中...';
+      const res = await fetch('/.netlify/functions/generate',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({type:'text2image',prompt:document.getElementById('prompt').value})
       });
-      const data = await response.json();
-      res.innerHTML = JSON.stringify(data, null, 2);
-      if (data.data && data.data.images && data.data.images[0] && data.data.images[0].image_url) {
-        res.innerHTML += '<img src="' + data.data.images[0].image_url + '">';
+      const d = await res.json();
+      r.innerHTML = JSON.stringify(d,null,2);
+      if(d.data?.images?.[0]?.image_url){
+        r.innerHTML += '<img src="'+d.data.images[0].image_url+'">';
       }
     }
   </script>
