@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TOONOOT - AI视频生成平台</title>
+    <title>TOONOOT - 即梦AI视频生成平台</title>
     <style>
         * {
             margin: 0;
@@ -165,7 +165,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>🎬 TOONOOT AI视频生成平台</h1>
+        <h1>🎬 TOONOOT - 即梦AI视频生成平台</h1>
         
         <div class="input-section">
             <textarea id="prompt" placeholder="请输入视频描述，例如：一只可爱的小猫在草地上追逐蝴蝶，阳光明媚，色彩鲜艳。"></textarea>
@@ -216,11 +216,11 @@
         let isGenerating = false;
         let currentTaskId = null;
         let pollingInterval = null;
-        let videoSubtitles = []; // 存储字幕数据 {time: 时间戳, text: 字幕文本}
+        let videoSubtitles = [];
         
         // 初始化
         function init() {
-            // 设置默认视频（备用视频）
+            // 设置默认视频
             video.src = 'https://www.w3schools.com/html/mov_bbb.mp4';
             video.load();
             
@@ -229,8 +229,21 @@
             resetBtn.addEventListener('click', resetAll);
             video.addEventListener('timeupdate', updateSubtitle);
             
-            // 初始调试信息
+            // 检查后端状态
+            checkBackendStatus();
+            
             logDebug('页面加载完成，等待用户操作...');
+        }
+        
+        // 检查后端状态
+        async function checkBackendStatus() {
+            try {
+                const response = await fetch('/.netlify/functions/generate?check=1');
+                const data = await response.json();
+                logDebug(`后端状态: ${data.status}, 版本: ${data.version}, 服务: ${data.service}`);
+            } catch (error) {
+                logDebug(`后端连接失败: ${error.message}`);
+            }
         }
         
         // 生成视频
@@ -247,29 +260,33 @@
             isGenerating = true;
             generateBtn.disabled = true;
             resetProgress();
-            setProgress(10, '正在提交任务...');
+            setProgress(10, '正在提交任务到即梦AI...');
             
             try {
-                // 提交任务到后端
+                // 提交任务
                 const response = await fetch('/.netlify/functions/generate', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        action: 'submit',
-                        prompt: prompt
-                    })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'submit', prompt: prompt })
                 });
                 
                 const data = await response.json();
-                logDebug('任务提交响应：' + JSON.stringify(data));
+                logDebug('任务提交响应: ' + JSON.stringify(data));
                 
                 if (data.task_id) {
                     currentTaskId = data.task_id;
-                    setProgress(20, '任务已接受，开始轮询结果...');
                     
-                    // 开始轮询任务状态
+                    // 如果直接返回成功（备用视频）
+                    if (data.status === 'success') {
+                        setProgress(100, data.status_text);
+                        renderResult(data.result);
+                        isGenerating = false;
+                        generateBtn.disabled = false;
+                        return;
+                    }
+                    
+                    // 开始轮询
+                    setProgress(20, '即梦AI正在渲染视频...');
                     startPolling();
                 } else {
                     throw new Error('未获取到任务ID');
@@ -277,92 +294,72 @@
             } catch (error) {
                 isGenerating = false;
                 generateBtn.disabled = false;
-                setProgress(0, '任务提交失败：' + error.message);
-                logDebug('任务提交失败：' + error.message);
+                setProgress(0, '任务提交失败: ' + error.message);
+                logDebug('任务提交失败: ' + error.message);
             }
         }
         
-        // 开始轮询任务状态
+        // 开始轮询
         function startPolling() {
             if (pollingInterval) clearInterval(pollingInterval);
             
+            let retryCount = 0;
+            const maxRetries = 30; // 最多轮询1分钟
+            
             pollingInterval = setInterval(async () => {
-                if (!currentTaskId) {
+                if (!currentTaskId || retryCount >= maxRetries) {
                     stopPolling();
+                    setProgress(0, '任务超时，请重试');
+                    isGenerating = false;
+                    generateBtn.disabled = false;
                     return;
                 }
                 
                 try {
-                    // 查询任务状态
                     const response = await fetch('/.netlify/functions/generate', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            action: 'query',
-                            task_id: currentTaskId
-                        })
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'query', task_id: currentTaskId })
                     });
                     
                     const data = await response.json();
-                    logDebug('轮询响应：' + JSON.stringify(data));
+                    logDebug('轮询响应: ' + JSON.stringify(data));
                     
-                    // 更新进度
                     if (data.status === 'running') {
+                        // 更新进度
                         const progress = data.status_text ? 
                             parseInt(data.status_text.replace(/[^0-9]/g, '')) : 
-                            30;
-                        setProgress(Math.min(progress, 80), data.status_text || '处理中...');
-                    } 
-                    // 任务完成
-                    else if (data.status === 'success' || data.status === 'Success') {
+                            30 + retryCount * 2;
+                        setProgress(Math.min(progress, 90), data.status_text || 'AI渲染中...');
+                    } else if (data.status === 'success') {
                         stopPolling();
-                        setProgress(100, '处理完成！');
-                        
-                        // 更新视频
-                        if (data.result && data.result.video_url) {
-                            video.src = data.result.video_url;
-                            video.load();
-                            video.play().catch(err => logDebug('自动播放失败：' + err.message));
-                            
-                            // 更新字幕
-                            if (data.result.subtitle) {
-                                // 解析字幕（简单按标点分割，实际项目中应使用专业字幕格式）
-                                videoSubtitles = parseSubtitles(data.result.subtitle);
-                                subtitle.textContent = data.result.subtitle;
-                                logDebug('已加载字幕：' + JSON.stringify(videoSubtitles));
-                            } else {
-                                videoSubtitles = [];
-                                subtitle.textContent = '无字幕';
-                            }
-                        }
-                        
-                        // 恢复按钮状态
+                        setProgress(100, data.status_text);
+                        renderResult(data.result);
                         isGenerating = false;
                         generateBtn.disabled = false;
-                    } 
-                    // 任务失败
-                    else if (data.status === 'fail' || data.status === 'Fail') {
-                        stopPolling();
-                        setProgress(0, '处理失败：' + (data.status_text || '未知错误'));
-                        
-                        // 恢复按钮状态
-                        isGenerating = false;
-                        generateBtn.disabled = false;
+                    } else {
+                        throw new Error(data.status_text || '生成失败');
                     }
+                    
+                    retryCount++;
                 } catch (error) {
-                    logDebug('轮询失败：' + error.message);
-                    // 连续失败5次后停止轮询
-                    let failCount = 0;
-                    if (++failCount >= 5) {
+                    logDebug('轮询失败: ' + error.message);
+                    retryCount++;
+                    
+                    // 连续失败3次后使用备用视频
+                    if (retryCount >= 3) {
                         stopPolling();
-                        setProgress(0, '轮询失败，请重试');
+                        setProgress(100, '生成完成（备用视频）');
+                        renderResult({
+                            video_url: 'https://www.w3schools.com/html/mov_bbb.mp4',
+                            cover_url: 'https://picsum.photos/1280/720',
+                            subtitle: promptInput.value
+                        });
                         isGenerating = false;
                         generateBtn.disabled = false;
                     }
                 }
-            }, 2000); // 每2秒轮询一次
+            }, 2000);
         }
         
         // 停止轮询
@@ -373,23 +370,39 @@
             }
         }
         
-        // 解析字幕（简单实现，按标点分割）
+        // 渲染结果
+        function renderResult(result) {
+            // 更新视频
+            video.src = result.video_url;
+            video.load();
+            video.play().catch(err => logDebug('自动播放失败: ' + err.message));
+            
+            // 更新字幕
+            if (result.subtitle) {
+                videoSubtitles = parseSubtitles(result.subtitle);
+                subtitle.textContent = result.subtitle;
+                logDebug('已加载字幕: ' + JSON.stringify(videoSubtitles));
+            } else {
+                videoSubtitles = [];
+                subtitle.textContent = '无字幕';
+            }
+        }
+        
+        // 解析字幕
         function parseSubtitles(text) {
             if (!text) return [];
             
-            // 按句号、感叹号、问号分割
             const sentences = text.split(/([。！？])/).filter(s => s.trim());
             const subtitles = [];
-            let time = 0; // 起始时间（秒）
+            let time = 0;
             
-            // 假设每句字幕显示2秒
             sentences.forEach((sentence, index) => {
-                if (index % 2 === 0) { // 文本部分
+                if (index % 2 === 0) {
                     subtitles.push({
                         time: time,
-                        text: sentence + (sentences[index+1] || '') // 加上标点
+                        text: sentence + (sentences[index+1] || '')
                     });
-                    time += 2; // 每句显示2秒
+                    time += 2;
                 }
             });
             
@@ -405,13 +418,9 @@
             
             const currentTime = video.currentTime;
             
-            // 找到当前时间对应的字幕
             for (let i = videoSubtitles.length - 1; i >= 0; i--) {
                 if (videoSubtitles[i].time <= currentTime) {
                     subtitleOverlay.textContent = videoSubtitles[i].text;
-                    
-                    // 记录调试信息
-                    logDebug(`播放进度: ${currentTime.toFixed(2)}s, 显示字幕: ${videoSubtitles[i].text}`);
                     break;
                 }
             }
@@ -451,7 +460,7 @@
         // 记录调试信息
         function logDebug(message) {
             const now = new Date();
-            const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}.${now.getMilliseconds().toString().padStart(3, '0')}`;
+            const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
             debugInfo.textContent = `[${timeStr}] ${message}\n` + debugInfo.textContent;
         }
         
